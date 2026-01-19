@@ -1,0 +1,356 @@
+/**
+ * TX Timeline Grid - 웹 타임라인 스타일시트
+ * 
+ * tx_xlsx_exporter.js의 엑셀 스타일과 동일하게 구현
+ */
+
+/* ============================================================
+   기본 컨테이너
+   ============================================================ */
+
+.tx-timeline-wrapper {
+  font-family: 'Malgun Gothic', '맑은 고딕', sans-serif;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.tx-timeline-scroll {
+  overflow-x: auto;
+  overflow-y: visible;
+  max-width: 100%;
+}
+
+/* ============================================================
+   테이블 기본 스타일
+   ============================================================ */
+
+.tx-timeline-table {
+  border-collapse: collapse;
+  border-spacing: 0;
+  table-layout: fixed;
+}
+
+/* 모든 셀 기본 스타일 */
+.tx-timeline-table th,
+.tx-timeline-table td {
+  box-sizing: border-box;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* ============================================================
+   헤더 스타일
+   ============================================================ */
+
+.tx-timeline-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.tx-header-cell {
+  background-color: #e6e6e6;
+  font-weight: bold;
+  text-align: center;
+  vertical-align: middle;
+  border: 1px solid #b0b0b0;
+  padding: 4px 2px;
+  height: 24px;
+}
+
+/* 카테고리/이벤트 헤더 열 */
+.tx-category-col {
+  position: sticky;
+  left: 0;
+  z-index: 12;
+  border-right: 2px solid #808080;
+  background-color: #e6e6e6;
+}
+
+.tx-event-col {
+  position: sticky;
+  left: 120px;
+  z-index: 12;
+  border-right: 2px solid #808080;
+  background-color: #e6e6e6;
+}
+
+/* 월 헤더 */
+.tx-month-cell {
+  border-left: 1px solid #d0d0d0;
+  border-right: 1px solid #d0d0d0;
+}
+
+/* 일 헤더 */
+.tx-day-cell {
+  font-weight: normal;
+  font-size: 11px;
+  border-left: 1px solid #d0d0d0;
+  border-right: 1px solid #d0d0d0;
+}
+
+/* 월 시작일 강조 */
+.tx-day-cell.tx-month-start {
+  border-left: 2px solid #808080;
+}
+
+/* 주말 색상 */
+.tx-day-cell.tx-sunday {
+  color: #ff0000;
+  background-color: #ffe6e6;
+}
+
+.tx-day-cell.tx-saturday {
+  color: #0000ff;
+  background-color: #e6f2ff;
+}
+
+/* ============================================================
+   바디 스타일
+   ============================================================ */
+
+.tx-timeline-table tbody tr {
+  height: 28px;
+}
+
+/* 카테고리 셀 */
+.tx-category-cell {
+  text-align: center;
+  vertical-align: middle;
+  font-weight: bold;
+  font-size: 11px;
+  padding: 2px 4px;
+  position: sticky;
+  left: 0;
+  z-index: 5;
+  background-color: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-right: 1px solid #b0b0b0;
+  text-overflow: ellipsis;
+}
+
+/* 이벤트 셀 */
+.tx-event-cell {
+  text-align: center;
+  vertical-align: middle;
+  padding: 2px 4px;
+  position: sticky;
+  left: 120px;
+  z-index: 5;
+  background-color: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-right: 2px solid #808080;
+  text-overflow: ellipsis;
+}
+
+/* 이벤트 링크 */
+.tx-event-link {
+  color: #333;
+  text-decoration: none;
+}
+
+.tx-event-link:hover {
+  color: #0066cc;
+  text-decoration: underline;
+}
+
+/* 스케줄 셀 (빈 셀 및 스케줄 바 공통) */
+.tx-schedule-cell {
+  border: 1px solid #d0d0d0;
+  padding: 0;
+  vertical-align: middle;
+}
+
+.tx-schedule-cell.tx-month-start {
+  border-left: 2px solid #808080;
+}
+
+/* 주말 배경색 (일정이 없는 셀에만 적용) */
+.tx-schedule-cell.tx-sunday:not(.tx-schedule-bar) {
+  background-color: #ffe6e6;
+}
+
+.tx-schedule-cell.tx-saturday:not(.tx-schedule-bar) {
+  background-color: #e6f2ff;
+}
+
+/* 카테고리 구분선 */
+.tx-data-row.tx-category-start .tx-category-cell,
+.tx-data-row.tx-category-start .tx-event-cell,
+.tx-data-row.tx-category-start .tx-schedule-cell {
+  border-top: 2px solid #808080;
+}
+
+.tx-data-row.tx-category-end .tx-category-cell,
+.tx-data-row.tx-category-end .tx-event-cell,
+.tx-data-row.tx-category-end .tx-schedule-cell {
+  border-bottom: 2px solid #808080;
+}
+
+/* ============================================================
+   스케줄 바 스타일
+   ============================================================ */
+
+.tx-schedule-bar {
+  text-align: center;
+  vertical-align: middle;
+  font-weight: bold;
+  font-size: 10px;
+  cursor: pointer;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transition: opacity 0.15s ease;
+}
+
+/* 스케줄 바 내부 컨텐츠 */
+.tx-schedule-bar-content {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 4px 2px;
+  line-height: 1.2;
+}
+
+.tx-schedule-bar:hover {
+  opacity: 0.85;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+/* 클릭 가능한 스케줄 바 */
+.tx-schedule-bar-clickable {
+  cursor: pointer;
+}
+
+/* 스케줄 링크 */
+.tx-schedule-link {
+  color: inherit;
+  text-decoration: underline;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.tx-schedule-link:hover {
+  text-decoration: none;
+}
+
+/* ============================================================
+   범례 스타일
+   ============================================================ */
+
+.tx-timeline-legend {
+  margin-top: 20px;
+  padding: 10px;
+}
+
+.tx-legend-title {
+  font-weight: bold;
+  font-size: 13px;
+  margin-bottom: 10px;
+  padding: 6px 10px;
+  background-color: #e6e6e6;
+  border: 1px solid #b0b0b0;
+  display: inline-block;
+}
+
+.tx-legend-items {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tx-legend-item {
+  padding: 6px 12px;
+  font-weight: bold;
+  font-size: 11px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  display: inline-block;
+  max-width: fit-content;
+}
+
+.tx-legend-link {
+  color: inherit;
+  text-decoration: underline;
+}
+
+.tx-legend-link:hover {
+  text-decoration: none;
+}
+
+/* ============================================================
+   반응형 및 추가 스타일
+   ============================================================ */
+
+/* 스크롤바 스타일 (웹킷 브라우저) */
+.tx-timeline-scroll::-webkit-scrollbar {
+  height: 10px;
+}
+
+.tx-timeline-scroll::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.tx-timeline-scroll::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.tx-timeline-scroll::-webkit-scrollbar-thumb:hover {
+  background: #a1a1a1;
+}
+
+/* 오늘 날짜 강조 (추후 기능) */
+.tx-day-cell.tx-today {
+  background-color: #fff3cd;
+  font-weight: bold;
+}
+
+.tx-schedule-cell.tx-today-column {
+  background-color: rgba(255, 243, 205, 0.3);
+}
+
+/* 선택된 스케줄 강조 */
+.tx-schedule-bar.tx-selected {
+  outline: 2px solid #007bff;
+  outline-offset: -2px;
+  z-index: 1;
+}
+
+/* Muted(흐림) 스케줄 바 - 다른 프로젝트 일감 등 배경 표시용 */
+.tx-schedule-bar.tx-schedule-bar-muted {
+  opacity: 0.7;
+  font-weight: normal;
+}
+
+.tx-schedule-bar.tx-schedule-bar-muted .tx-schedule-bar-content {
+  font-weight: normal;
+}
+
+.tx-schedule-bar.tx-schedule-bar-muted:hover {
+  opacity: 0.8;
+}
+
+/* 호버 효과 - 전체 행 강조 */
+.tx-data-row:hover .tx-category-cell,
+.tx-data-row:hover .tx-event-cell {
+  background-color: #f5f5f5;
+}
+
+/* 프린트 스타일 */
+@media print {
+  .tx-timeline-scroll {
+    overflow: visible;
+  }
+  
+  .tx-category-col,
+  .tx-event-col,
+  .tx-category-cell,
+  .tx-event-cell {
+    position: static;
+  }
+  
+  .tx-schedule-bar {
+    box-shadow: none;
+  }
+}

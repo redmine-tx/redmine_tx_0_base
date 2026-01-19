@@ -1,0 +1,183 @@
+<div class="container">
+  
+  <!-- 제외 설정 그룹 -->
+  <div class="section">
+    <h3 class="title">보고 제외 설정</h3>
+    <div class="grid">
+      <div class="item">
+        <h3>이슈 팁 제외 설정</h3>
+        <div class="checkbox-wrapper">
+          <%= check_box_tag 'settings[no_tip_for_bugs]', '1', Setting[:plugin_redmine_tx_0_base][:no_tip_for_bugs] == '1' %>
+          <span>QA 일감은 팁을 표시하지 않음</span>
+        </div>
+      </div>
+      
+      <div class="item">
+        <h3>그룹별 보고에서 제외할 그룹</h3>
+        <div class="select-wrapper">
+          <%= select_tag('settings_redmine_tx_0_base_e_group', 
+              options_for_select(Group.all.order(:name).map { |t| [ t.name, t.id ] }, 
+              selected: Setting[:plugin_redmine_tx_0_base][:e_group].to_s.tr('[]" ','').split(',')), 
+              name: 'settings[e_group][]', multiple: true ) %>
+        </div>
+      </div>
+      <div class="item">
+        <h3>보고에서 제외할 사용자</h3>
+        <div class="select-wrapper">
+          <%= select_tag('settings_redmine_tx_0_base_e_user', 
+              options_for_select(User.where("status != 3").order(:lastname, :firstname).map { |t| [ t.name, t.id ] }, 
+              selected: Setting[:plugin_redmine_tx_0_base][:e_user].to_s.tr('[]" ','').split(',')), 
+              name: 'settings[e_user][]', multiple: true ) %>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PM팀 설정 그룹 -->
+  <div class="section">
+    <h3 class="title">관리자 설정</h3>
+    <div class="grid">
+      <div class="item">
+        <h3>PM팀</h3>
+        <div class="select-wrapper">
+          <%= select_tag('settings_redmine_tx_0_base_pm_group', 
+            options_for_select(Group.all.order(:name).map { |t| [ t.name, t.id ] }, 
+              selected: Setting[:plugin_redmine_tx_0_base][:pm_group].to_s.tr('[]" ','').split(',')), 
+              name: 'settings[pm_group][]', multiple: true ) %>
+        </div>
+      </div>
+
+      <div class="item">
+        <h3>매니저</h3>
+        <div class="select-wrapper">
+          <%= select_tag('settings_redmine_tx_0_base_manager_roles', 
+            options_for_select(Role.all.order(:name).map { |t| [ t.name, t.id ] }, 
+              selected: Setting[:plugin_redmine_tx_0_base][:manager_roles].to_s.tr('[]" ','').split(',')), 
+              name: 'settings[manager_roles][]', multiple: true ) %>
+        </div>
+      </div>
+
+      <div class="item">
+        <h3>마이페이지 설정</h3>
+        <div class="checkbox-wrapper">
+          <%= check_box_tag 'settings[force_top]', '1', Setting[:plugin_redmine_tx_0_base][:force_top] == '1' %>
+          <span>조치 필요 일감 리스트를 마이페이지 최상단에 표시</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <% manager_roles = Setting[:plugin_redmine_tx_0_base][:manager_roles].to_s.tr('[]" ','').split(',').map {|i| i.to_i}
+  if !manager_roles.empty? then
+    managers = Role.where(id: manager_roles).map(&:members).flatten.map(&:user)
+    pm_users = Group.where(id: Setting[:plugin_redmine_tx_0_base][:pm_group].to_s.tr('[]" ','').split(',')).map(&:users).flatten
+    managers = ( managers + pm_users ).select {|u| u && u.active? }.uniq {|u| u.id}
+    #managers = []
+  %>
+
+    <div class="section">
+      <h3 class="title">매니저별 담당팀 설정</h3>
+      <div class="grid">
+        <% managers.each do |manager| %>
+          <div class="item">
+            <h3><%=manager.name%></h3>
+            <div class="select-wrapper">
+              <%= select_tag("settings_redmine_tx_0_base_manager_#{manager.id}", 
+                options_for_select(Group.all.order(:name).map { |t| [ t.name, t.id ] }, 
+                  selected: Setting[:plugin_redmine_tx_0_base]["manager_#{manager.id}".to_sym].to_s.tr('[]" ','').split(',')), 
+                  name: "settings[manager_#{manager.id}][]", multiple: true ) %>
+            </div>
+          </div>
+        <% end %>
+      </div>
+    </div>
+  <% end %>
+</div>
+
+<style>
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.section {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  padding: 20px;
+  margin-bottom: 24px;
+}
+
+.title {
+  color: #2c3e50;
+  font-size: 1.2em;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #eee;
+}
+
+.grid {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+}
+
+.item {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.item h3 {
+  font-weight: 600;
+  color: #555;
+  font-size: 0.9em;
+  display: block;
+  width: 100%;
+  text-align: left;
+  margin-bottom: 4px;
+}
+
+.select-wrapper {
+  width: 100%;
+}
+
+.select {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: #f8f9fa;
+  min-height: 120px;
+  box-sizing: border-box;
+}
+
+.select:focus {
+  border-color: #3498db;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(52,152,219,0.2);
+}
+
+/* 화면이 넓을 때는 2열 또는 3열로 표시 */
+@media (min-width: 768px) {
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 20px;
+  }
+  
+  .item {
+    min-width: 0;
+  }
+}
+</style>
+
+..
+
+<%= Setting[:plugin_redmine_tx_0_base] %>

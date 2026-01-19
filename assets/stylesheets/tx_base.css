@@ -1,0 +1,28 @@
+/* 디스크 용량 경고 배너 스타일 */
+.disk-warning-banner {
+  background: linear-gradient(135deg, #d9534f 0%, #c9302c 100%);
+  color: white;
+  padding: 15px 20px;
+  margin: 0;
+  text-align: center;
+  border-bottom: 3px solid #a02622;
+  font-size: 14px;
+  font-weight: bold;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  animation: pulse-warning 2s ease-in-out infinite;
+}
+
+@keyframes pulse-warning {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+.disk-warning-banner span {
+  vertical-align: middle;
+}
+
+
