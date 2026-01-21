@@ -1,11 +1,37 @@
 /**
  * TX Timeline Grid - 공용 웹 타임라인 렌더러
  * 
- * 의존성: 없음 (순수 JavaScript)
+ * @fileoverview 순수 JavaScript로 작성된 웹 기반 타임라인 렌더러
+ * @version 1.0.0
+ * @author Redmine TX Team
  * 
- * 사용법:
- *   TxTimelineGrid.render(containerElement, jsonData);
- *   TxTimelineGrid.render('#timeline-container', jsonData);
+ * @requires 없음 (순수 JavaScript, 외부 의존성 없음)
+ * 
+ * @description
+ * 주요 기능:
+ * - 웹 타임라인 그리드 렌더링 (월/일 헤더 + 스케줄 바)
+ * - 카테고리별 색상 구분
+ * - 세로선 마커 (Today, 마일스톤 등)
+ * - 범례(Legend) 표시
+ * - 스케줄 클릭 이벤트 (tx-schedule-click)
+ * - 반응형 스크롤
+ * - Today 위치로 자동 스크롤 옵션
+ * 
+ * @example
+ * // 기본 사용법
+ * var jsonData = { categories: [ /* ... */ ] };
+ * TxTimelineGrid.render('#timeline-container', jsonData);
+ * 
+ * @example
+ * // 옵션 사용
+ * TxTimelineGrid.render('#timeline-container', jsonData, {
+ *   scrollToToday: true,
+ *   scrollAlign: 'center',
+ *   verticalMarkers: [{ date: '2024-12-31', name: 'v1.0 출시', color: '#FF6B6B' }]
+ * });
+ * 
+ * @see README.rdoc
+ * @see docs/tx_timeline_grid_guide.md
  * 
  * JSON 데이터 형식: tx_xlsx_exporter.js와 동일
  */
@@ -204,6 +230,9 @@ var TxTimelineGrid = (function() {
     var start = new Date(startDate);
     start.setHours(0, 0, 0, 0);
     var msPerDay = 1000 * 60 * 60 * 24;
+    
+    // 같은 날짜의 마커를 추적하기 위한 맵 (dayIndex -> 현재 층 수)
+    var dayIndexRowMap = {};
 
     markers.forEach(function(marker) {
       if (!marker) return;
@@ -226,11 +255,16 @@ var TxTimelineGrid = (function() {
 
       // 마커 아이템 정보 (헤더 마커 행에서 사용)
       if (name) {
+        // 같은 날짜에 이미 마커가 있으면 다음 층에 배치
+        var row = dayIndexRowMap[idx] || 0;
+        dayIndexRowMap[idx] = row + 1;
+        
         result.markerItems.push({
           dayIndex: idx,
           leftPx: leftPx,
           name: name,
-          color: color
+          color: color,
+          row: row  // 층 번호 (0부터 시작)
         });
       }
     });
@@ -315,7 +349,8 @@ var TxTimelineGrid = (function() {
       // 세로선 마커 데이터 생성 (점선 + 마커 아이템)
       var optionMarkers = (options && options.verticalMarkers) ? options.verticalMarkers : [];
       var renderMarkers = renderOptions.verticalMarkers || [];
-      var verticalMarkers = [{ date: new Date(), name: 'Today', color: '#e00000' }].concat(optionMarkers, renderMarkers);
+      // Today 마커를 맨 뒤에 추가하여 다른 마커와 겹칠 때 위에 표시되도록 함
+      var verticalMarkers = optionMarkers.concat(renderMarkers, [{ date: new Date(), name: 'Today', color: '#e00000' }]);
       var markersData = buildVerticalMarkersData(
         verticalMarkers,
         startDate,
@@ -520,13 +555,17 @@ var TxTimelineGrid = (function() {
    * @param {Array} days - 일 헤더 정보
    * @param {string} categoryLabel - 카테고리 라벨
    * @param {string} eventLabel - 이벤트 라벨
-   * @param {Array} markerItems - 마커 아이템 배열 [{dayIndex, leftPx, name, color}]
+   * @param {Array} markerItems - 마커 아이템 배열 [{dayIndex, leftPx, name, color, row}]
    * @param {number} dayColWidth - 날짜 컬럼 너비
    */
   function buildHeaderHtml(months, days, categoryLabel, eventLabel, markerItems, dayColWidth) {
     var html = '<thead>';
     var hasMarkers = markerItems && markerItems.length > 0;
     var rowspan = hasMarkers ? 3 : 2;
+    
+    // 마커 행 높이는 고정 (18px)
+    var rowHeight = 18;
+    var markerRowHeight = 18;
     
     // 월 헤더 행 (첫 번째 행)
     html += '<tr class="tx-month-row">';
@@ -555,12 +594,17 @@ var TxTimelineGrid = (function() {
     if (hasMarkers) {
       html += '<tr class="tx-marker-row">';
       // 날짜 영역: 전체를 하나의 셀로 병합, 내부에 마커 이름들을 absolute로 배치
-      html += '<th class="tx-header-cell tx-marker-cell" colspan="' + days.length + '" style="position:relative; height:18px; padding:0; vertical-align:top; background:#f5f5f5;">';
-      // 마커 이름들 배치
+      // 높이는 고정 (18px), overflow:visible로 위로 넘치도록 허용
+      html += '<th class="tx-header-cell tx-marker-cell" colspan="' + days.length + '" style="position:relative; height:' + markerRowHeight + 'px; padding:0; vertical-align:top; background:#f5f5f5; overflow:visible;">';
+      // 마커 이름들 배치 (층에 따라 위로 올라가도록 음수 top 사용)
       markerItems.forEach(function(item) {
         // leftPx는 날짜 영역 내부 좌표 (dayIndex * dayColWidth + offset)
         var labelLeft = (item.dayIndex * dayColWidth) + 2;
-        html += '<span style="position:absolute; top:1px; left:' + labelLeft + 'px; padding:1px 4px; font-size:11px; line-height:1.2; background:rgba(255,255,255,0.9); color:' + escapeHtml(item.color) + '; border:1px solid ' + escapeHtml(item.color) + '; border-radius:3px; white-space:nowrap; font-weight:normal;">' + escapeHtml(item.name) + '</span>';
+        // row=0: top=1px (정상 위치)
+        // row=1: top=-17px (위로 올라감)
+        // row=2: top=-35px (더 위로 올라감)
+        var labelTop = (item.row === 0) ? 1 : (1 - (item.row * rowHeight));
+        html += '<span style="position:absolute; top:' + labelTop + 'px; left:' + labelLeft + 'px; padding:1px 4px; font-size:11px; line-height:1.2; background:rgba(255,255,255,0.9); color:' + escapeHtml(item.color) + '; border:1px solid ' + escapeHtml(item.color) + '; border-radius:3px; white-space:nowrap; font-weight:normal; z-index:' + (100 + item.row) + ';">' + escapeHtml(item.name) + '</span>';
       });
       html += '</th>';
       html += '</tr>';

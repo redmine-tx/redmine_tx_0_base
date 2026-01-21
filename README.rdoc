@@ -1,3 +1,369 @@
-= redmine_tx_base
+= Redmine TX Base
 
-Description goes here
+Redmine TX 플러그인들의 공통 기능을 제공하는 기반 플러그인입니다.
+
+== 📋 제공 기능 (빠른 참조)
+
+=== JavaScript 라이브러리
+* *TX Issue Autocomplete* - 일감 ID/제목 다중 자동완성 (쉼표/세미콜론/공백 구분) → {상세 가이드}[#label-1.+JavaScript+%EB%9D%BC%EC%9D%B4%EB%B8%8C%EB%9F%AC%EB%A6%AC]
+* *TX Timeline Grid* - 웹 타임라인 렌더러 (순수 JS, 세로선 마커, 클릭 이벤트) → {상세 가이드}[#label-1.+JavaScript+%EB%9D%BC%EC%9D%B4%EB%B8%8C%EB%9F%AC%EB%A6%AC]
+* *TX XLSX Exporter* - 엑셀 로드맵 익스포터 (타임라인+리스트 시트, ExcelJS 기반) → {상세 가이드}[#label-1.+JavaScript+%EB%9D%BC%EC%9D%B4%EB%B8%8C%EB%9F%AC%EB%A6%AC]
+
+=== 헬퍼 & 유틸리티
+* *TxBaseHelper* - 공통 헬퍼 함수 모음
+* *TxBaseAutocompletesController* - 자동완성 데이터 API (+/tx_base/autocompletes/*+)
+
+=== 뷰 컴포넌트
+* *일감 목록* (+shared/_issue_list.html.erb+) - 공통 일감 목록 partial
+
+=== 📚 문서
+* {docs/INDEX.md}[docs/INDEX.md] - 전체 문서 인덱스
+* {docs/issue_autocomplete_examples.md}[docs/issue_autocomplete_examples.md] - 자동완성 실전 예제
+* {docs/tx_timeline_grid_guide.md}[docs/tx_timeline_grid_guide.md] - 타임라인 그리드 가이드
+* {docs/tx_xlsx_exporter_guide.md}[docs/tx_xlsx_exporter_guide.md] - 엑셀 익스포터 가이드
+
+---
+
+== 상세 가이드
+
+=== 1. JavaScript 라이브러리
+
+==== TX Issue Autocomplete (일감 자동완성)
+
+일감 ID나 제목을 입력받아 자동완성 기능을 제공하는 공통 유틸리티입니다.
+여러 개의 일감 ID를 쉼표(,), 세미콜론(;), 공백으로 구분하여 입력할 수 있습니다.
+
+===== 사용 방법
+
+====== 1. JavaScript 파일 포함
+
+뷰 파일의 header_tags에 다음과 같이 추가:
+
+  <% content_for :header_tags do %>
+    <%= javascript_include_tag 'tx_issue_autocomplete', plugin: 'redmine_tx_0_base' %>
+  <% end %>
+
+또는 partial 파일에서 직접 포함:
+
+  <%= javascript_include_tag 'tx_issue_autocomplete', plugin: 'redmine_tx_0_base' %>
+
+====== 2. HTML 입력 필드 준비
+
+  <textarea id="issue-ids" placeholder="일감 ID나 제목을 입력하세요"></textarea>
+
+====== 3. 자동완성 초기화
+
+  <script>
+  $(document).ready(function() {
+    setupIssueAutocomplete(
+      'issue-ids',                           // 입력 필드 ID
+      '<%= tx_base_top_parent_issues_path %>', // 자동완성 데이터 URL
+      {
+        projectId: '<%= @project.id %>',     // 선택사항: 특정 프로젝트로 제한
+        scope: 'all',                        // 선택사항: 검색 범위 (projectId가 없을 때)
+        onSelect: function() {               // 선택사항: 선택 후 콜백
+          console.log('일감 선택됨:', this.value);
+        }
+      }
+    );
+  });
+  </script>
+
+===== 함수 레퍼런스
+
+====== setupIssueAutocomplete(fieldId, url, options)
+
+일감 ID 다중 자동완성을 설정합니다.
+
+*파라미터:*
+* +fieldId+ (string, 필수) - 입력 필드의 DOM ID
+* +url+ (string, 필수) - 자동완성 데이터를 가져올 URL (일반적으로 tx_base_top_parent_issues_path)
+* +options+ (object, 선택) - 추가 옵션
+  * +projectId+ (string, 선택) - 특정 프로젝트로 검색 제한
+  * +scope+ (string, 선택) - 검색 범위 ('all' 등), projectId가 없을 때 사용
+  * +onSelect+ (function, 선택) - 일감 선택 후 실행될 콜백 함수
+
+*반환값:* 없음
+
+*예제:*
+
+  // 프로젝트 범위로 제한
+  setupIssueAutocomplete('issue-ids', '/tx_base/autocompletes/top_parent_issues', {
+    projectId: '123'
+  });
+
+  // 전체 프로젝트 검색
+  setupIssueAutocomplete('issue-ids', '/tx_base/autocompletes/top_parent_issues', {
+    scope: 'all'
+  });
+
+  // 선택 후 콜백 사용
+  setupIssueAutocomplete('issue-ids', '/tx_base/autocompletes/top_parent_issues', {
+    projectId: '123',
+    onSelect: function() {
+      $('#submit-button').prop('disabled', false);
+    }
+  });
+
+====== parseIssueIds(input)
+
+입력 문자열에서 일감 ID들을 파싱하여 배열로 반환합니다.
+
+*파라미터:*
+* +input+ (string, 필수) - 파싱할 입력 문자열 (예: "1234, 5678; 9012")
+
+*반환값:* Array<number> - 파싱된 일감 ID 배열
+
+*예제:*
+
+  var input = "1234, 5678; 9012 3456";
+  var issueIds = parseIssueIds(input);
+  console.log(issueIds); // [1234, 5678, 9012, 3456]
+
+  var emptyInput = "";
+  var noIds = parseIssueIds(emptyInput);
+  console.log(noIds); // []
+
+  var mixedInput = "1234, abc, 5678";
+  var validIds = parseIssueIds(mixedInput);
+  console.log(validIds); // [1234, 5678] (숫자만 추출)
+
+===== 실제 사용 예제
+
+====== 예제 1: 기본 사용
+
+  <!-- HTML -->
+  <textarea id="issue-ids" placeholder="일감 ID를 입력하세요"></textarea>
+  <button id="submit-btn" disabled>제출</button>
+
+  <!-- JavaScript -->
+  <script>
+  $(document).ready(function() {
+    setupIssueAutocomplete('issue-ids', '/tx_base/autocompletes/top_parent_issues', {
+      projectId: '123',
+      onSelect: function() {
+        var ids = parseIssueIds(this.value);
+        $('#submit-btn').prop('disabled', ids.length === 0);
+      }
+    });
+
+    // 수동 입력 시에도 버튼 상태 업데이트
+    $('#issue-ids').on('input', function() {
+      var ids = parseIssueIds($(this).val());
+      $('#submit-btn').prop('disabled', ids.length === 0);
+    });
+  });
+  </script>
+
+====== 예제 2: 여러 일감 처리
+
+  <script>
+  $('#submit-btn').click(function() {
+    var input = $('#issue-ids').val();
+    var issueIds = parseIssueIds(input);
+    
+    if (issueIds.length === 0) {
+      alert('일감 ID를 입력해주세요.');
+      return;
+    }
+    
+    // 각 일감 ID 처리
+    issueIds.forEach(function(issueId) {
+      console.log('처리 중:', issueId);
+    });
+  });
+  </script>
+
+===== 입력 형식
+
+사용자는 다음과 같은 다양한 형식으로 입력할 수 있습니다:
+
+* 쉼표 구분: +1234, 5678, 9012+
+* 세미콜론 구분: +1234; 5678; 9012+
+* 공백 구분: +1234 5678 9012+
+* 혼합 구분: +1234, 5678; 9012 3456+
+* 자동완성 선택: 일감 번호나 제목을 입력하면 자동완성 목록이 표시됨
+
+===== 주의사항
+
+* 입력 필드는 +<textarea>+ 또는 +<input type="text">+ 모두 사용 가능
+* 자동완성은 최소 2자 이상 입력 시 활성화됨
+* +parseIssueIds+ 함수는 숫자가 아닌 값과 0 이하의 값을 자동으로 필터링함
+* 프로젝트 범위를 지정하지 않으면 사용자가 접근 가능한 모든 프로젝트의 일감을 검색
+
+
+==== TX Timeline Grid (타임라인 그리드)
+
+순수 JavaScript로 작성된 웹 기반 타임라인 렌더러입니다. 로드맵과 스케줄을 시각적으로 표현합니다.
+
+*주요 기능:*
+* 📊 웹 타임라인 그리드 렌더링
+* 🎨 카테고리별 색상 구분
+* 📍 세로선 마커 (Today, 마일스톤 등)
+* 📌 범례(Legend) 표시
+* 🖱️ 스케줄 클릭 이벤트
+* 📱 반응형 스크롤
+* ⚡ 외부 의존성 없음 (순수 JavaScript)
+
+*사용 방법:*
+
+  <%= javascript_include_tag 'tx_timeline_grid', plugin: 'redmine_tx_0_base' %>
+  <%= stylesheet_link_tag 'tx_timeline_grid', plugin: 'redmine_tx_0_base' %>
+
+*기본 예제:*
+
+  <div id="timeline-container"></div>
+  
+  <script>
+  var jsonData = {
+    options: {
+      categoryLabel: "팀",
+      eventLabel: "담당자"
+    },
+    categories: [
+      {
+        name: "백엔드 개발",
+        customColor: "#4A90E2",
+        events: [
+          {
+            name: "API 개발",
+            schedules: [
+              {
+                name: "사용자 API",
+                startDate: "2024-01-15",
+                endDate: "2024-01-30",
+                issue: "#101",
+                doneRatio: "80"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  };
+  
+  TxTimelineGrid.render('#timeline-container', jsonData);
+  </script>
+
+*상세 문서:* docs/tx_timeline_grid_guide.md
+
+
+==== TX XLSX Exporter (엑셀 익스포터)
+
+ExcelJS 기반의 로드맵 타임라인 엑셀 익스포터입니다.
+
+*주요 기능:*
+* 📊 로드맵 타임라인 시트 생성
+* 📋 스케줄 리스트 시트 생성
+* 🎨 카테고리별 색상 구분
+* 🔗 일감 하이퍼링크 연결
+* 📝 셀 메모(코멘트) 지원
+* 📌 범례(Legend) 표시
+* 🗓️ 자동 날짜 범위 계산
+
+*의존성:*
+* ExcelJS 라이브러리 (https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js)
+
+*사용 방법:*
+
+  <!-- ExcelJS 라이브러리 (필수) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+  
+  <!-- TX XLSX Exporter -->
+  <%= javascript_include_tag 'tx_xlsx_exporter', plugin: 'redmine_tx_0_base' %>
+
+*기본 예제:*
+
+  var jsonData = {
+    categories: [
+      {
+        name: "백엔드 개발",
+        customColor: "#4A90E2",
+        events: [
+          {
+            name: "API 개발",
+            schedules: [
+              {
+                name: "사용자 API",
+                startDate: "2024-01-15",
+                endDate: "2024-01-30",
+                issue: "#101",
+                doneRatio: "80"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  };
+  
+  // 엑셀 다운로드
+  TxXlsxExporter.exportToXlsx(jsonData, '로드맵_2024')
+    .then(function() {
+      console.log('다운로드 완료');
+    })
+    .catch(function(error) {
+      console.error('다운로드 실패:', error);
+    });
+
+*상세 문서:* docs/tx_xlsx_exporter_guide.md
+
+*참고:* TX Timeline Grid와 TX XLSX Exporter는 동일한 JSON 데이터 구조를 사용하므로,
+하나의 데이터로 웹 타임라인과 엑셀 파일을 모두 생성할 수 있습니다.
+
+
+=== 2. 헬퍼 & 유틸리티
+
+==== TxBaseHelper
+
+공통 헬퍼 함수들을 제공합니다.
+
+==== TxBaseAutocompletesController
+
+자동완성 데이터 API를 제공하는 컨트롤러입니다.
+
+*엔드포인트:*
+* +GET /tx_base/autocompletes/top_parent_issues+ - 최상위 부모 일감 자동완성
+
+
+=== 3. 뷰 컴포넌트
+
+==== 일감 목록 (_issue_list.html.erb)
+
+공통 일감 목록 partial을 제공합니다.
+
+*사용 방법:*
+
+  <%= render partial: 'shared/issue_list', locals: { 
+    issues: @issues, 
+    page_size: 15, 
+    columns: [:id, :tracker, :subject, :status], 
+    list_id: 'my-issues-list' 
+  } %>
+
+
+== 설치
+
+1. 플러그인 디렉토리에 복사:
+
+     cd redmine/plugins
+     git clone <repository-url> redmine_tx_0_base
+
+2. Redmine 재시작
+
+
+== 의존성
+
+* Redmine 4.0 이상
+* jQuery (Redmine 기본 포함)
+* jQuery UI Autocomplete (Redmine 기본 포함)
+
+
+== 라이선스
+
+이 플러그인은 GPL v2 라이선스로 배포됩니다.
+
+
+== 문의
+
+문제 발생 시 이슈 트래커에 등록해주세요.

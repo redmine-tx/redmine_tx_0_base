@@ -1,12 +1,35 @@
 /**
  * TX XLSX Exporter - 공용 엑셀 로드맵 익스포터
  * 
- * 의존성: ExcelJS 라이브러리 필요
+ * @fileoverview ExcelJS 기반의 로드맵 타임라인 엑셀 익스포터
+ * @version 1.0.0
+ * @author Redmine TX Team
  * 
- * 사용법:
- *   var workbook = new ExcelJS.Workbook();
- *   TxXlsxExporter.createRoadmapTimelineSheet(workbook, jsonData);
- *   TxXlsxExporter.createScheduleListSheet(workbook, jsonData);
+ * @requires ExcelJS (https://github.com/exceljs/exceljs)
+ * 
+ * @description
+ * 주요 기능:
+ * - 로드맵 타임라인 시트 생성 (월/일 헤더 + 스케줄 바)
+ * - 스케줄 리스트 시트 생성 (테이블 형식)
+ * - 카테고리별 색상 구분
+ * - 일감 하이퍼링크 연결
+ * - 셀 메모(코멘트) 지원
+ * - 범례(Legend) 표시
+ * - 자동 날짜 범위 계산
+ * 
+ * @example
+ * // 간단한 사용법
+ * var jsonData = { categories: [ /* ... */ ] };
+ * TxXlsxExporter.exportToXlsx(jsonData, '로드맵_2024');
+ * 
+ * @example
+ * // 수동 워크북 생성
+ * var workbook = new ExcelJS.Workbook();
+ * TxXlsxExporter.createRoadmapTimelineSheet(workbook, jsonData);
+ * TxXlsxExporter.createScheduleListSheet(workbook, jsonData);
+ * 
+ * @see README.rdoc
+ * @see docs/tx_xlsx_exporter_guide.md
  * 
  * JSON 데이터 형식:
  *   {
