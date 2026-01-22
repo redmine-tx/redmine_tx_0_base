@@ -19,7 +19,7 @@
  * 
  * @example
  * // 간단한 사용법
- * var jsonData = { categories: [ /* ... */ ] };
+ * var jsonData = { categories: [  ...  ] };
  * TxXlsxExporter.exportToXlsx(jsonData, '로드맵_2024');
  * 
  * @example

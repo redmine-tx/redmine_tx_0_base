@@ -19,7 +19,7 @@
  * 
  * @example
  * // 기본 사용법
- * var jsonData = { categories: [ /* ... */ ] };
+ * var jsonData = { categories: [  ...  ] };
  * TxTimelineGrid.render('#timeline-container', jsonData);
  * 
  * @example
