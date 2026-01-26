@@ -17,4 +17,6 @@ end
 Rails.application.config.after_initialize do
   require_dependency File.expand_path('../lib/tx_base_helper', __FILE__)
   require_dependency File.expand_path('../lib/tx_base_hook', __FILE__)
+  require_dependency File.expand_path('../lib/tx_base_helper/issue_query_column_helper', __FILE__)
+  require_dependency File.expand_path('../lib/tx_base_helper/patches/issue_query_patch', __FILE__)
 end

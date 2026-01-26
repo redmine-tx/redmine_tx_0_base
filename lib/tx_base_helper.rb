@@ -80,4 +80,74 @@ module TxBaseHelper
     Rails.logger.error "Failed to check disk usage: #{e.message}"
     nil
   end
+
+  module IssuePatch
+    def self.included(base)
+      base.class_eval do
+        before_save :record_end_date_change_log
+      end
+    end
+
+    private
+    
+    def record_end_date_change_log
+      # 완료 기한이 변경된 경우
+      if respond_to?(:due_date_changed?) && due_date_changed?
+        now = Time.now
+        self.end_date_changed_on = now
+        
+        # 완료 기한이 뒤로 밀린 경우 (지연)
+        # due_date_was: 변경 전 날짜, due_date: 변경 후 날짜
+        if due_date_was.present? && due_date.present? && due_date > due_date_was
+          self.end_date_delayed_on = now
+        end
+      end
+    end
+
+    public
+    
+    def update_end_date_changed_on!
+      # 최신 저널부터 역순으로 탐색
+      journals_with_due_date = journals.reorder(created_on: :desc).joins(:details).where(journal_details: { prop_key: 'due_date' })
+      
+      last_change = journals_with_due_date.first
+      
+      if last_change
+        update_columns(end_date_changed_on: last_change.created_on)
+      else
+        update_columns(end_date_changed_on: created_on)
+      end
+
+      # 지연 발생 시각 찾기 (과거 이력 뒤지기)
+      # 가장 최근에 '지연'이 발생했던 시점을 찾음
+      last_delay_journal = nil
+      
+      journals_with_due_date.each do |journal|
+        detail = journal.details.find { |d| d.prop_key == 'due_date' }
+        old_value = detail.old_value
+        new_value = detail.value
+        
+        # 날짜 비교를 위해 파싱 (String -> Date)
+        begin
+          old_date = old_value.present? ? Date.parse(old_value) : nil
+          new_date = new_value.present? ? Date.parse(new_value) : nil
+          
+          if old_date && new_date && new_date > old_date
+            last_delay_journal = journal
+            break # 가장 최근의 지연 발견 시 중단
+          end
+        rescue ArgumentError
+          # 날짜 파싱 실패 시 무시
+        end
+      end
+
+      if last_delay_journal
+        update_columns(end_date_delayed_on: last_delay_journal.created_on)
+      end
+    end
+  end
+end
+
+unless Issue.included_modules.include?(TxBaseHelper::IssuePatch)
+  Issue.send(:include, TxBaseHelper::IssuePatch)
 end
