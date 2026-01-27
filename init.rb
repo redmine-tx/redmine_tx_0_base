@@ -18,5 +18,10 @@ Rails.application.config.after_initialize do
   require_dependency File.expand_path('../lib/tx_base_helper', __FILE__)
   require_dependency File.expand_path('../lib/tx_base_hook', __FILE__)
   require_dependency File.expand_path('../lib/tx_base_helper/issue_query_column_helper', __FILE__)
-  require_dependency File.expand_path('../lib/tx_base_helper/patches/issue_query_patch', __FILE__)
+  require_dependency File.expand_path('../lib/tx_base_helper/issue_query_dsl', __FILE__)
+
+  TxBaseHelper.register_issue_query_columns do
+    column :end_date_changed_on, filter: :date_past
+    column :end_date_delayed_on, filter: :date_past
+  end
 end
