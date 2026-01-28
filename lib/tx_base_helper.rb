@@ -85,11 +85,12 @@ module TxBaseHelper
     def self.included(base)
       base.class_eval do
         before_save :record_end_date_change_log
+        belongs_to :end_date_delayed_by, class_name: 'User', optional: true
       end
     end
 
     private
-    
+
     def record_end_date_change_log
       # 완료 기한이 변경된 경우
       if respond_to?(:due_date_changed?) && due_date_changed?
@@ -101,6 +102,8 @@ module TxBaseHelper
         # 작업 시작 이후(진척도 > 0)에만 지연으로 기록
         if due_date_was.present? && due_date.present? && due_date > due_date_was && done_ratio > 0
           self.end_date_delayed_on = now
+          self.end_date_delayed_by_id = User.current.id  # 일정 수정 조작자
+          self.end_date_delayed_days = TxBaseHelper.business_days_between(due_date_was, due_date)
         end
       end
     end
@@ -167,12 +170,56 @@ module TxBaseHelper
       end
 
       if last_delay_journal
-        update_columns(end_date_delayed_on: last_delay_journal.created_on)
+        detail = last_delay_journal.details.find { |d| d.prop_key == 'due_date' }
+        old_date = Date.parse(detail.old_value)
+        new_date = Date.parse(detail.value)
+
+        delayed_days = TxBaseHelper.business_days_between(old_date, new_date)
+
+        update_columns(
+          end_date_delayed_on: last_delay_journal.created_on,
+          end_date_delayed_by_id: last_delay_journal.user_id,  # 일정 수정 조작자
+          end_date_delayed_days: delayed_days
+        )
       else
         # 작업 시작 후 지연이 없으면 nil로 초기화
-        update_columns(end_date_delayed_on: nil)
+        update_columns(
+          end_date_delayed_on: nil,
+          end_date_delayed_by_id: nil,
+          end_date_delayed_days: nil
+        )
       end
     end
+  end
+
+  # 두 날짜 사이의 영업일 수 계산 (주말/공휴일 제외)
+  # @param start_date [Date] 시작 날짜 (이 날짜 다음날부터 계산)
+  # @param end_date [Date] 종료 날짜 (이 날짜까지 계산)
+  # @return [Integer] 영업일 수
+  def self.business_days_between(start_date, end_date)
+    return 0 if start_date >= end_date
+
+    count = 0
+    current_date = start_date + 1
+
+    # 공휴일 캐시를 위해 날짜 범위 조회 (HolidayApi가 사용 가능한 경우)
+    holidays = {}
+    if HolidayApi.available?
+      holidays = HolidayApi.for_date_range(start_date, end_date)
+    end
+
+    while current_date <= end_date
+      # 토요일(6), 일요일(0) 제외
+      unless current_date.wday == 0 || current_date.wday == 6
+        # 공휴일 제외
+        unless holidays.key?(current_date)
+          count += 1
+        end
+      end
+      current_date += 1
+    end
+
+    count
   end
 end
 

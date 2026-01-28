@@ -59,6 +59,32 @@ module TxBaseHelper
       end
     end
 
+    # 사용자(User) 타입 컬럼 등록
+    # @param name [Symbol] 컬럼명 (예: :end_date_delayed_by)
+    # @param options [Hash] 옵션
+    #   - :association [Symbol] belongs_to 연관명 (기본: name)
+    #   - :filter [Boolean] 필터 추가 여부 (기본: true)
+    def user_column(name, options = {})
+      association = options.delete(:association) || name
+      add_filter = options.delete(:filter) != false
+
+      @columns << {
+        name: name,
+        type: :user,
+        association: association,
+        options: options
+      }
+
+      if add_filter
+        @filters << {
+          name: "#{name}_id",
+          type: :list_optional,
+          user_filter: true,
+          association: association
+        }
+      end
+    end
+
     # 독립적인 필터 등록 (컬럼 없이 필터만)
     def filter(name, options = {})
       @filters << { name: name }.merge(options)
@@ -94,6 +120,12 @@ module TxBaseHelper
 
               if filter_type == :date_past
                 add_issue_date_filter filter_name
+              elsif filter_def[:user_filter]
+                # 사용자 필터 - 활성 사용자 목록 제공
+                add_available_filter filter_name, {
+                  type: :list_optional,
+                  values: lambda { User.active.sorted.map { |u| [u.name, u.id.to_s] } }
+                }
               elsif filter_def[:virtual]
                 # 가상 컬럼 필터
                 filter_opts = filter_def[:filter_options].dup
@@ -175,6 +207,17 @@ module TxBaseHelper
           columns.each do |col|
             if col[:type] == :timestamp
               add_issue_timestamp_column col[:name], col[:options]
+            elsif col[:type] == :user
+              # User 타입 컬럼은 QueryAssociationColumn 사용
+              # QueryAssociationColumn.new(association, attribute, options)
+              association = col[:association]
+              add_available_column QueryAssociationColumn.new(
+                association,
+                :name,
+                :caption => col[:options][:caption] || "field_#{col[:name]}".to_sym,
+                :sortable => col[:options][:sortable] || Proc.new { User.fields_for_order_statement(association) },
+                :groupable => col[:options].key?(:groupable) ? col[:options][:groupable] : true
+              )
             else
               add_issue_column col[:name], col[:options]
             end

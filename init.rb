@@ -25,5 +25,7 @@ Rails.application.config.after_initialize do
   TxBaseHelper.register_issue_query_columns do
     column :end_date_changed_on, filter: :date_past
     column :end_date_delayed_on, filter: :date_past
+    user_column :end_date_delayed_by  # 연기 시점의 담당자
+    column :end_date_delayed_days, filter: { type: :integer }  # 연기 일수 (영업일 기준)
   end
 end

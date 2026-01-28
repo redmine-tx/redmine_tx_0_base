@@ -1,3 +1,6 @@
 ko:
   field_end_date_changed_on: "완료기한 변경일"
-  field_end_date_delayed_on: "완료기한 지연일"
+  field_end_date_delayed_on: "완료기한 연기일"
+  field_end_date_delayed_by: "연기자"
+  field_end_date_delayed_by_id: "연기자"
+  field_end_date_delayed_days: "연기 일수"
