@@ -86,22 +86,44 @@ var TxTimelineGrid = (function() {
    * 일별 헤더 정보 생성
    * @param {Date} startDate - 시작 날짜
    * @param {Date} endDate - 종료 날짜
-   * @returns {Array} 일별 헤더 배열 [{day: 1, dayOfWeek: 0, date: Date}, ...]
+   * @param {Array} holidays - 공휴일 배열 (YYYY-MM-DD 형식)
+   * @returns {Array} 일별 헤더 배열 [{day: 1, dayOfWeek: 0, date: Date, isHoliday: Boolean}, ...]
    */
-  function generateDayHeaders(startDate, endDate) {
+  function generateDayHeaders(startDate, endDate, holidays) {
     var days = [];
     var currentDate = new Date(startDate);
-    
+    holidays = holidays || [];
+
+    // 공휴일 Set 생성 (빠른 검색을 위해)
+    var holidaySet = new Set();
+    holidays.forEach(function(holiday) {
+      holidaySet.add(holiday);
+    });
+
     while (currentDate <= endDate) {
+      var dateStr = formatDateYMD(currentDate);
       days.push({
         day: currentDate.getDate(),
         dayOfWeek: currentDate.getDay(), // 0: 일요일, 6: 토요일
-        date: new Date(currentDate)
+        date: new Date(currentDate),
+        isHoliday: holidaySet.has(dateStr)
       });
       currentDate.setDate(currentDate.getDate() + 1);
     }
-    
+
     return days;
+  }
+
+  /**
+   * Date 객체를 YYYY-MM-DD 문자열로 변환
+   * @param {Date} date - 날짜 객체
+   * @returns {string} YYYY-MM-DD 형식 문자열
+   */
+  function formatDateYMD(date) {
+    var year = date.getFullYear();
+    var month = String(date.getMonth() + 1).padStart(2, '0');
+    var day = String(date.getDate()).padStart(2, '0');
+    return year + '-' + month + '-' + day;
   }
 
   /**
@@ -334,7 +356,8 @@ var TxTimelineGrid = (function() {
       }
 
       var months = generateMonthHeaders(startDate, endDate);
-      var days = generateDayHeaders(startDate, endDate);
+      var holidays = options.holidays || [];
+      var days = generateDayHeaders(startDate, endDate, holidays);
 
       // 이벤트별 스케줄 매핑 생성 (행 단위 스케줄 배치용)
       var eventScheduleMap = buildEventScheduleMap(jsonData.categories, startDate, days.length);
@@ -582,10 +605,16 @@ var TxTimelineGrid = (function() {
     html += '<tr class="tx-day-row">';
     days.forEach(function(dayInfo, index) {
       var dayClass = 'tx-header-cell tx-day-cell';
-      if (dayInfo.dayOfWeek === 0) dayClass += ' tx-sunday';
-      if (dayInfo.dayOfWeek === 6) dayClass += ' tx-saturday';
+      // 공휴일이 일요일/토요일보다 우선 (공휴일은 빨간색으로 표시)
+      if (dayInfo.isHoliday) {
+        dayClass += ' tx-holiday';
+      } else if (dayInfo.dayOfWeek === 0) {
+        dayClass += ' tx-sunday';
+      } else if (dayInfo.dayOfWeek === 6) {
+        dayClass += ' tx-saturday';
+      }
       if (dayInfo.day === 1) dayClass += ' tx-month-start';
-      
+
       html += '<th class="' + dayClass + '" data-day-index="' + index + '">' + dayInfo.day + '</th>';
     });
     html += '</tr>';
@@ -702,9 +731,14 @@ var TxTimelineGrid = (function() {
       
       var cellClass = 'tx-schedule-cell';
       if (dayInfo.day === 1) cellClass += ' tx-month-start';
-      // 주말 클래스 추가
-      if (dayInfo.dayOfWeek === 0) cellClass += ' tx-sunday';
-      if (dayInfo.dayOfWeek === 6) cellClass += ' tx-saturday';
+      // 공휴일이 일요일/토요일보다 우선 (공휴일은 빨간색으로 표시)
+      if (dayInfo.isHoliday) {
+        cellClass += ' tx-holiday';
+      } else if (dayInfo.dayOfWeek === 0) {
+        cellClass += ' tx-sunday';
+      } else if (dayInfo.dayOfWeek === 6) {
+        cellClass += ' tx-saturday';
+      }
       
       // 이 인덱스에서 시작하는 스케줄 찾기
       var schedule = schedules.find(function(s) {

@@ -33,7 +33,8 @@ var jsonData = {
   options: {
     categoryLabel: "팀",
     eventLabel: "담당자",
-    rowHeight: 30
+    rowHeight: 30,
+    holidays: ["2024-01-01", "2024-03-01", "2024-05-05"]  // 공휴일 배열 (선택)
   },
   categories: [
     {
@@ -104,7 +105,8 @@ workbook.xlsx.writeBuffer().then(function(buffer) {
     categoryLabel: "카테고리",     // A열 헤더 (기본값: "카테고리")
     eventLabel: "이벤트",          // B열 헤더 (기본값: "이벤트")
     rowHeight: 30,                // 행 높이 (기본값: 30)
-    showScheduleName: true        // 스케줄 바에 이름 표시 (기본값: true)
+    showScheduleName: true,       // 스케줄 바에 이름 표시 (기본값: true)
+    holidays: ["2024-01-01", "2024-03-01"]  // 공휴일 배열 (기본값: [])
   },
   legends: [                      // 선택사항: 범례
     {
@@ -153,6 +155,7 @@ workbook.xlsx.writeBuffer().then(function(buffer) {
 | `eventLabel` | string | "이벤트" | 두 번째 열 헤더 텍스트 |
 | `rowHeight` | number | 30 | 데이터 행의 높이 (픽셀) |
 | `showScheduleName` | boolean | true | 스케줄 바에 이름 표시 여부 |
+| `holidays` | array | [] | 공휴일 날짜 배열 (YYYY-MM-DD 형식) |
 
 **참고:** `startDate`와 `endDate`를 생략하면 `categories`의 모든 스케줄 날짜로부터 자동으로 계산됩니다.
 
@@ -248,6 +251,81 @@ TxXlsxExporter.exportToXlsx(jsonData, '2024_로드맵')
 **생성되는 시트:**
 - 시트 이름: "스케줄 리스트"
 - 컬럼: 카테고리, 이벤트, 스케줄명, 시작일, 종료일, 이슈, 기간, 완료율
+
+## 공휴일 표시
+
+엑셀 타임라인에서 공휴일을 일요일처럼 빨간색으로 표시할 수 있습니다.
+
+### 공휴일 설정
+
+```javascript
+var jsonData = {
+  options: {
+    categoryLabel: "팀",
+    eventLabel: "담당자",
+    holidays: [
+      "2024-01-01",  // 신정
+      "2024-03-01",  // 삼일절
+      "2024-05-05",  // 어린이날
+      "2024-06-06",  // 현충일
+      "2024-08-15",  // 광복절
+      "2024-10-03",  // 개천절
+      "2024-12-25"   // 크리스마스
+    ]
+  },
+  categories: [ /* ... */ ]
+};
+
+TxXlsxExporter.exportToXlsx(jsonData, '로드맵_2024');
+```
+
+### Redmine 연동 예제
+
+Redmine의 Holiday API를 사용하여 공휴일 데이터를 가져올 수 있습니다:
+
+```ruby
+<%
+  # 타임라인 표시 기간 계산
+  timeline_start_date = display_start_date
+  timeline_end_date = max_due_date + 60.days
+
+  # 공휴일 조회 (TxBaseHelper::HolidayApi 사용)
+  holidays = if TxBaseHelper::HolidayApi.available?
+    holiday_data = TxBaseHelper::HolidayApi.for_date_range(timeline_start_date, timeline_end_date)
+    # [[date, name], ...] 형태를 날짜 문자열 배열로 변환
+    holiday_data.map { |date, name| date.strftime('%Y-%m-%d') }
+  else
+    []
+  end
+%>
+
+<script>
+var jsonData = {
+  options: {
+    categoryLabel: "팀",
+    eventLabel: "담당자",
+    holidays: <%= holidays.to_json.html_safe %>
+  },
+  categories: [ /* ... */ ]
+};
+
+// 웹 타임라인 렌더링
+TxTimelineGrid.render('#timeline-grid-container', jsonData);
+
+// 엑셀 다운로드
+$('#export-xlsx-btn').click(function() {
+  TxXlsxExporter.exportToXlsx(jsonData, '일정요약_' + dateStr);
+});
+</script>
+```
+
+### 공휴일 표시 규칙
+
+엑셀 일 헤더에서:
+- **공휴일**: 빨간색 텍스트 (#FF0000)
+- **일요일**: 빨간색 텍스트 (#FF0000)
+- **토요일**: 파란색 텍스트 (#0000FF)
+- **우선순위**: 공휴일 > 일요일 > 토요일 (겹치는 경우 공휴일 스타일 우선)
 
 ## 색상 처리
 
@@ -479,5 +557,15 @@ TxXlsxExporter.exportToXlsx(jsonData, 'filename')
 
 ---
 
-**버전:** 1.0.0  
-**최종 업데이트:** 2026-01-20
+**버전:** 1.1.0
+**최종 업데이트:** 2026-01-27
+
+## 변경 이력
+
+### v1.1.0 (2026-01-27)
+- 공휴일 표시 기능 추가 (`options.holidays`)
+- 공휴일을 일요일처럼 빨간색으로 표시
+- Redmine Holiday API 연동 예제 추가
+
+### v1.0.0 (2026-01-20)
+- 초기 릴리스

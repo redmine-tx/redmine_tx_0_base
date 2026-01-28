@@ -226,19 +226,50 @@ var TxXlsxExporter = (function() {
     try {
       var startDate = new Date(startDateStr);
       var dayNumber = parseInt(dayValue);
-      
+
       if (isNaN(dayNumber)) {
         return -1;
       }
-      
+
       var daysFromStart = colIndex - 3;
       var currentDate = new Date(startDate);
       currentDate.setDate(startDate.getDate() + daysFromStart);
-      
+
       return currentDate.getDay();
     } catch (error) {
       console.error('getDayOfWeekFromTimeline 오류:', error);
       return -1;
+    }
+  }
+
+  /**
+   * 특정 날짜가 공휴일인지 확인
+   * @param {number} colIndex - 엑셀 컬럼 인덱스
+   * @param {string} startDateStr - 시작 날짜 문자열 (YYYY-MM-DD)
+   * @param {Array} holidays - 공휴일 배열 (YYYY-MM-DD 형식)
+   * @returns {boolean} 공휴일 여부
+   */
+  function isHoliday(colIndex, startDateStr, holidays) {
+    if (!holidays || !Array.isArray(holidays) || holidays.length === 0) {
+      return false;
+    }
+
+    try {
+      var startDate = new Date(startDateStr);
+      var daysFromStart = colIndex - 3;
+      var currentDate = new Date(startDate);
+      currentDate.setDate(startDate.getDate() + daysFromStart);
+
+      // YYYY-MM-DD 형식으로 변환
+      var year = currentDate.getFullYear();
+      var month = String(currentDate.getMonth() + 1).padStart(2, '0');
+      var day = String(currentDate.getDate()).padStart(2, '0');
+      var dateStr = year + '-' + month + '-' + day;
+
+      return holidays.indexOf(dateStr) !== -1;
+    } catch (error) {
+      console.error('isHoliday 오류:', error);
+      return false;
     }
   }
 
@@ -410,10 +441,11 @@ var TxXlsxExporter = (function() {
    * @param {ExcelJS.Worksheet} worksheet - 워크시트
    * @param {number} columnCount - 컬럼 수
    * @param {string} startDateStr - 시작 날짜 문자열 (YYYY-MM-DD)
+   * @param {Array} holidays - 공휴일 배열 (YYYY-MM-DD 형식)
    */
-  function applyHeaderStyles(worksheet, columnCount, startDateStr) {
+  function applyHeaderStyles(worksheet, columnCount, startDateStr, holidays) {
     try {
-      
+
       // 첫 번째 행 (월 헤더)
       for (var col = 1; col <= columnCount; col++) {
         var cell = worksheet.getCell(1, col);
@@ -454,14 +486,18 @@ var TxXlsxExporter = (function() {
       for (var col = 1; col <= columnCount; col++) {
         var cell = worksheet.getCell(2, col);
         var cellValue = cell.value;
-        
+
         cell.font = { bold: false };
-        
+
         if (col >= 3 && cellValue) {
           var dayValue = cellValue.toString();
+          var isHolidayDay = isHoliday(col, startDateStr, holidays);
           var dayOfWeek = getDayOfWeekFromTimeline(dayValue, col, startDateStr);
-          
-          if (dayOfWeek === 0) {
+
+          // 공휴일이 일요일/토요일보다 우선
+          if (isHolidayDay) {
+            cell.font = { bold: false, color: { argb: 'FFFF0000' } };
+          } else if (dayOfWeek === 0) {
             cell.font = { bold: false, color: { argb: 'FFFF0000' } };
           } else if (dayOfWeek === 6) {
             cell.font = { bold: false, color: { argb: 'FF0000FF' } };
@@ -696,6 +732,7 @@ var TxXlsxExporter = (function() {
       var eventLabel = options.eventLabel || '이벤트';
       var rowHeight = options.rowHeight || 30;
       var showScheduleName = options.showScheduleName !== false;  // 기본값 true
+      var holidays = options.holidays || [];  // 공휴일 배열
       
       var startDate, endDate;
       var startDateStr, endDateStr;
@@ -905,7 +942,7 @@ var TxXlsxExporter = (function() {
       }
       
       // 헤더 스타일 적용
-      applyHeaderStyles(worksheet, days.length + 2, startDateStr);
+      applyHeaderStyles(worksheet, days.length + 2, startDateStr, holidays);
       
       // 틀 고정 설정
       worksheet.views = [

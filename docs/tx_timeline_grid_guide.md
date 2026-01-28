@@ -39,7 +39,8 @@ var jsonData = {
   options: {
     categoryLabel: "팀",
     eventLabel: "담당자",
-    showScheduleName: true
+    showScheduleName: true,
+    holidays: ["2024-01-01", "2024-03-01", "2024-05-05"]  // 공휴일 배열 (선택)
   },
   categories: [
     {
@@ -77,6 +78,12 @@ TX XLSX Exporter와 **동일한 JSON 구조**를 사용합니다.
 ### 추가 필드
 
 TX Timeline Grid에서 추가로 지원하는 필드:
+
+#### options
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| `holidays` | array | 공휴일 날짜 배열 (YYYY-MM-DD 형식) |
 
 #### schedules
 
@@ -255,6 +262,74 @@ TxTimelineGrid.render('#timeline', jsonData, {
 - `'auto'`: 즉시 스크롤
 - `'smooth'`: 부드러운 애니메이션 스크롤
 
+## 공휴일 표시
+
+타임라인에서 공휴일을 일요일처럼 빨간색으로 표시할 수 있습니다.
+
+### 공휴일 설정
+
+```javascript
+var jsonData = {
+  options: {
+    categoryLabel: "팀",
+    eventLabel: "담당자",
+    holidays: [
+      "2024-01-01",  // 신정
+      "2024-03-01",  // 삼일절
+      "2024-05-05",  // 어린이날
+      "2024-06-06",  // 현충일
+      "2024-08-15",  // 광복절
+      "2024-10-03",  // 개천절
+      "2024-12-25"   // 크리스마스
+    ]
+  },
+  categories: [ /* ... */ ]
+};
+
+TxTimelineGrid.render('#timeline', jsonData);
+```
+
+### Redmine 연동 예제
+
+Redmine의 Holiday API를 사용하여 공휴일 데이터를 가져올 수 있습니다:
+
+```ruby
+<%
+  # 타임라인 표시 기간 계산
+  timeline_start_date = display_start_date
+  timeline_end_date = max_due_date + 60.days
+
+  # 공휴일 조회 (TxBaseHelper::HolidayApi 사용)
+  holidays = if TxBaseHelper::HolidayApi.available?
+    holiday_data = TxBaseHelper::HolidayApi.for_date_range(timeline_start_date, timeline_end_date)
+    # [[date, name], ...] 형태를 날짜 문자열 배열로 변환
+    holiday_data.map { |date, name| date.strftime('%Y-%m-%d') }
+  else
+    []
+  end
+%>
+
+<script>
+var jsonData = {
+  options: {
+    categoryLabel: "팀",
+    eventLabel: "담당자",
+    holidays: <%= holidays.to_json.html_safe %>
+  },
+  categories: [ /* ... */ ]
+};
+
+TxTimelineGrid.render('#timeline-grid-container', jsonData);
+</script>
+```
+
+### 공휴일 표시 규칙
+
+- **공휴일**: 빨간색 배경 (#ffe6e6), 빨간색 텍스트 (#ff0000)
+- **일요일**: 공휴일과 동일한 스타일
+- **토요일**: 파란색 배경 (#e6f2ff), 파란색 텍스트 (#0000ff)
+- **우선순위**: 공휴일 > 일요일 > 토요일 (겹치는 경우 공휴일 스타일 우선)
+
 ## CSS 커스터마이징
 
 ### 기본 스타일 오버라이드
@@ -270,9 +345,16 @@ TxTimelineGrid.render('#timeline', jsonData, {
   background-color: #f0f0f0 !important;
 }
 
-/* 주말 열 강조 */
-.tx-day-header-cell.weekend {
-  background-color: #ffe0e0 !important;
+/* 주말 및 공휴일 색상 커스터마이징 */
+.tx-day-cell.tx-sunday,
+.tx-day-cell.tx-holiday {
+  color: #cc0000 !important;
+  background-color: #ffcccc !important;
+}
+
+.tx-day-cell.tx-saturday {
+  color: #0000cc !important;
+  background-color: #ccddff !important;
 }
 
 /* Today 마커 색상 변경 */
@@ -578,5 +660,15 @@ try {
 
 ---
 
-**버전:** 1.0.0  
-**최종 업데이트:** 2026-01-20
+**버전:** 1.1.0
+**최종 업데이트:** 2026-01-27
+
+## 변경 이력
+
+### v1.1.0 (2026-01-27)
+- 공휴일 표시 기능 추가 (`options.holidays`)
+- 공휴일을 일요일처럼 빨간색으로 표시
+- Redmine Holiday API 연동 예제 추가
+
+### v1.0.0 (2026-01-20)
+- 초기 릴리스

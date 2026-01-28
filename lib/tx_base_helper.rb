@@ -95,23 +95,44 @@ module TxBaseHelper
       if respond_to?(:due_date_changed?) && due_date_changed?
         now = Time.now
         self.end_date_changed_on = now
-        
+
         # 완료 기한이 뒤로 밀린 경우 (지연)
         # due_date_was: 변경 전 날짜, due_date: 변경 후 날짜
-        if due_date_was.present? && due_date.present? && due_date > due_date_was
+        # 작업 시작 이후(진척도 > 0)에만 지연으로 기록
+        if due_date_was.present? && due_date.present? && due_date > due_date_was && done_ratio > 0
           self.end_date_delayed_on = now
         end
       end
     end
 
     public
-    
+
+    # 특정 시점에서의 진척도를 계산
+    # 일감 생성 시점부터 해당 시점까지의 done_ratio 변경 이력을 추적
+    def done_ratio_at(target_time)
+      # 초기값은 0
+      ratio = 0
+
+      # 생성 시점부터 target_time까지의 done_ratio 변경 이력을 시간순으로 조회
+      done_ratio_journals = journals.reorder(created_on: :asc)
+                                    .joins(:details)
+                                    .where(journal_details: { prop_key: 'done_ratio' })
+                                    .where('journals.created_on <= ?', target_time)
+
+      done_ratio_journals.each do |journal|
+        detail = journal.details.find { |d| d.prop_key == 'done_ratio' }
+        ratio = detail.value.to_i if detail&.value.present?
+      end
+
+      ratio
+    end
+
     def update_end_date_changed_on!
       # 최신 저널부터 역순으로 탐색
       journals_with_due_date = journals.reorder(created_on: :desc).joins(:details).where(journal_details: { prop_key: 'due_date' })
-      
+
       last_change = journals_with_due_date.first
-      
+
       if last_change
         update_columns(end_date_changed_on: last_change.created_on)
       else
@@ -120,21 +141,25 @@ module TxBaseHelper
 
       # 지연 발생 시각 찾기 (과거 이력 뒤지기)
       # 가장 최근에 '지연'이 발생했던 시점을 찾음
+      # 단, 작업 시작 이후(진척도 > 0)에 발생한 지연만 대상
       last_delay_journal = nil
-      
+
       journals_with_due_date.each do |journal|
         detail = journal.details.find { |d| d.prop_key == 'due_date' }
         old_value = detail.old_value
         new_value = detail.value
-        
+
         # 날짜 비교를 위해 파싱 (String -> Date)
         begin
           old_date = old_value.present? ? Date.parse(old_value) : nil
           new_date = new_value.present? ? Date.parse(new_value) : nil
-          
+
           if old_date && new_date && new_date > old_date
-            last_delay_journal = journal
-            break # 가장 최근의 지연 발견 시 중단
+            # 해당 시점에 진척도가 0보다 컸는지 확인
+            if done_ratio_at(journal.created_on) > 0
+              last_delay_journal = journal
+              break # 가장 최근의 지연 발견 시 중단
+            end
           end
         rescue ArgumentError
           # 날짜 파싱 실패 시 무시
@@ -143,6 +168,9 @@ module TxBaseHelper
 
       if last_delay_journal
         update_columns(end_date_delayed_on: last_delay_journal.created_on)
+      else
+        # 작업 시작 후 지연이 없으면 nil로 초기화
+        update_columns(end_date_delayed_on: nil)
       end
     end
   end

@@ -94,7 +94,7 @@
   border-left: 2px solid #808080;
 }
 
-/* 주말 색상 */
+/* 주말 및 공휴일 색상 */
 .tx-day-cell.tx-sunday {
   color: #ff0000;
   background-color: #ffe6e6;
@@ -103,6 +103,12 @@
 .tx-day-cell.tx-saturday {
   color: #0000ff;
   background-color: #e6f2ff;
+}
+
+/* 공휴일 색상 (일요일과 동일하게 빨간색) */
+.tx-day-cell.tx-holiday {
+  color: #ff0000;
+  background-color: #ffe6e6;
 }
 
 /* ============================================================
@@ -165,13 +171,17 @@
   border-left: 2px solid #808080;
 }
 
-/* 주말 배경색 (일정이 없는 셀에만 적용) */
+/* 주말 및 공휴일 배경색 (일정이 없는 셀에만 적용) */
 .tx-schedule-cell.tx-sunday:not(.tx-schedule-bar) {
   background-color: #ffe6e6;
 }
 
 .tx-schedule-cell.tx-saturday:not(.tx-schedule-bar) {
   background-color: #e6f2ff;
+}
+
+.tx-schedule-cell.tx-holiday:not(.tx-schedule-bar) {
+  background-color: #ffe6e6;
 }
 
 /* 카테고리 구분선 */
