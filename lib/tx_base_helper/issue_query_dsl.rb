@@ -208,12 +208,11 @@ module TxBaseHelper
             if col[:type] == :timestamp
               add_issue_timestamp_column col[:name], col[:options]
             elsif col[:type] == :user
-              # User 타입 컬럼은 QueryAssociationColumn 사용
-              # QueryAssociationColumn.new(association, attribute, options)
+              # User 타입 컬럼은 일반 QueryColumn 사용 (belongs_to 관계가 User 객체 반환)
+              # Redmine이 자동으로 User 객체에 link_to_user 적용
               association = col[:association]
-              add_available_column QueryAssociationColumn.new(
+              add_available_column QueryColumn.new(
                 association,
-                :name,
                 :caption => col[:options][:caption] || "field_#{col[:name]}".to_sym,
                 :sortable => col[:options][:sortable] || Proc.new { User.fields_for_order_statement(association) },
                 :groupable => col[:options].key?(:groupable) ? col[:options][:groupable] : true
