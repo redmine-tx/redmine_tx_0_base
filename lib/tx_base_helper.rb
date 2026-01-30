@@ -99,8 +99,8 @@ module TxBaseHelper
 
         # 완료 기한이 뒤로 밀린 경우 (지연)
         # due_date_was: 변경 전 날짜, due_date: 변경 후 날짜
-        # 작업 시작 이후(진척도 > 0)에만 지연으로 기록
-        if due_date_was.present? && due_date.present? && due_date > due_date_was && done_ratio > 0
+        # 작업 시작 이후(진척도 > 0 또는 상태가 진행중 이상)에만 지연으로 기록
+        if due_date_was.present? && due_date.present? && due_date > due_date_was && work_started_at?(now)
           self.end_date_delayed_on = now
           self.end_date_delayed_by_id = User.current.id  # 일정 수정 조작자
           self.end_date_delayed_days = TxBaseHelper.business_days_between(due_date_was, due_date)
@@ -113,21 +113,85 @@ module TxBaseHelper
     # 특정 시점에서의 진척도를 계산
     # 일감 생성 시점부터 해당 시점까지의 done_ratio 변경 이력을 추적
     def done_ratio_at(target_time)
-      # 초기값은 0
-      ratio = 0
-
       # 생성 시점부터 target_time까지의 done_ratio 변경 이력을 시간순으로 조회
       done_ratio_journals = journals.reorder(created_on: :asc)
                                     .joins(:details)
                                     .where(journal_details: { prop_key: 'done_ratio' })
                                     .where('journals.created_on <= ?', target_time)
 
+      # 초기값 결정: 첫 번째 done_ratio 변경 저널의 old_value가 생성 시점의 값
+      # 변경 이력이 없으면 현재 done_ratio가 초기값 (생성 후 변경 없음)
+      first_change = journals.reorder(created_on: :asc)
+                             .joins(:details)
+                             .where(journal_details: { prop_key: 'done_ratio' })
+                             .first
+
+      if first_change
+        first_detail = first_change.details.find { |d| d.prop_key == 'done_ratio' }
+        ratio = first_detail&.old_value.to_i
+      else
+        # done_ratio 변경 기록이 없으면 현재 값이 초기값
+        ratio = done_ratio
+      end
+
+      # target_time까지의 변경 이력 적용
       done_ratio_journals.each do |journal|
         detail = journal.details.find { |d| d.prop_key == 'done_ratio' }
         ratio = detail.value.to_i if detail&.value.present?
       end
 
       ratio
+    end
+
+    # 특정 시점에서의 상태 ID를 계산
+    # 일감 생성 시점부터 해당 시점까지의 status_id 변경 이력을 추적
+    def status_at(target_time)
+      # 생성 시점부터 target_time까지의 status_id 변경 이력을 시간순으로 조회
+      status_journals = journals.reorder(created_on: :asc)
+                                .joins(:details)
+                                .where(journal_details: { prop_key: 'status_id' })
+                                .where('journals.created_on <= ?', target_time)
+
+      # 초기값 결정: 첫 번째 status_id 변경 저널의 old_value가 생성 시점의 값
+      # 변경 이력이 없으면 현재 status_id가 초기값 (생성 후 변경 없음)
+      first_change = journals.reorder(created_on: :asc)
+                             .joins(:details)
+                             .where(journal_details: { prop_key: 'status_id' })
+                             .first
+
+      if first_change
+        first_detail = first_change.details.find { |d| d.prop_key == 'status_id' }
+        result_status_id = first_detail&.old_value.to_i
+      else
+        # status_id 변경 기록이 없으면 현재 값이 초기값
+        result_status_id = status_id
+      end
+
+      # target_time까지의 변경 이력 적용
+      status_journals.each do |journal|
+        detail = journal.details.find { |d| d.prop_key == 'status_id' }
+        result_status_id = detail.value.to_i if detail&.value.present?
+      end
+
+      result_status_id
+    end
+
+    # 특정 시점에 작업이 시작되었는지 확인
+    # 조건: done_ratio > 0 또는 상태가 '진행중' 이상
+    def work_started_at?(target_time)
+      return true if done_ratio_at(target_time) > 0
+
+      # IssueStatus의 stage 시스템 사용 (redmine_tx_advanced_issue_status)
+      target_status_id = status_at(target_time)
+      if IssueStatus.respond_to?(:is_in_progress?)
+        IssueStatus.is_in_progress?(target_status_id) ||
+          IssueStatus.is_in_review?(target_status_id) ||
+          IssueStatus.is_implemented?(target_status_id) ||
+          IssueStatus.is_qa?(target_status_id) ||
+          IssueStatus.is_completed?(target_status_id)
+      else
+        false
+      end
     end
 
     def update_end_date_changed_on!
@@ -144,7 +208,7 @@ module TxBaseHelper
 
       # 지연 발생 시각 찾기 (과거 이력 뒤지기)
       # 가장 최근에 '지연'이 발생했던 시점을 찾음
-      # 단, 작업 시작 이후(진척도 > 0)에 발생한 지연만 대상
+      # 단, 작업 시작 이후(진척도 > 0 또는 상태가 진행중 이상)에 발생한 지연만 대상
       last_delay_journal = nil
 
       journals_with_due_date.each do |journal|
@@ -158,8 +222,8 @@ module TxBaseHelper
           new_date = new_value.present? ? Date.parse(new_value) : nil
 
           if old_date && new_date && new_date > old_date
-            # 해당 시점에 진척도가 0보다 컸는지 확인
-            if done_ratio_at(journal.created_on) > 0
+            # 해당 시점에 작업이 시작되었는지 확인 (진척도 > 0 또는 상태가 진행중 이상)
+            if work_started_at?(journal.created_on)
               last_delay_journal = journal
               break # 가장 최근의 지연 발견 시 중단
             end
@@ -182,7 +246,7 @@ module TxBaseHelper
           end_date_delayed_days: delayed_days
         )
       else
-        # 작업 시작 후 지연이 없으면 nil로 초기화
+        # 작업 시작(진척도 > 0 또는 진행중 이상 상태) 후 지연이 없으면 nil로 초기화
         update_columns(
           end_date_delayed_on: nil,
           end_date_delayed_by_id: nil,
