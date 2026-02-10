@@ -203,8 +203,11 @@ module TxBaseHelper
           extend TxBaseHelper::IssueQueryColumnHelper
           include TxBaseHelper::IssueQueryColumnHelper
 
-          # 일반 컬럼 추가
+          # 일반 컬럼 추가 (이름 기반 중복 체크)
           columns.each do |col|
+            col_id = col[:type] == :user ? col[:association] : col[:name]
+            next if available_columns.any? { |c| c.name == col_id }
+
             if col[:type] == :timestamp
               add_issue_timestamp_column col[:name], col[:options]
             elsif col[:type] == :user
@@ -222,8 +225,9 @@ module TxBaseHelper
             end
           end
 
-          # 가상 컬럼 추가
+          # 가상 컬럼 추가 (이름 기반 중복 체크)
           virtual_columns.each do |vcol|
+            next if available_columns.any? { |c| c.name == vcol[:name] }
             add_issue_virtual_column vcol[:name], vcol[:options].merge(value_proc: vcol[:value_proc])
           end
 

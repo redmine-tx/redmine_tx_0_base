@@ -1,5 +1,31 @@
 <div class="container">
   
+  <!-- 상단 메뉴 설정 -->
+  <div class="section">
+    <h3 class="title">상단 메뉴 설정</h3>
+    <div class="grid">
+      <div class="item">
+        <h3>프로젝트 바로가기</h3>
+        <div class="checkbox-wrapper">
+          <%= check_box_tag 'settings[show_top_projects]', '1', Setting[:plugin_redmine_tx_0_base][:show_top_projects] == '1' %>
+          <span>상단 메뉴바에 프로젝트 바로가기 표시 (일감 수 순 정렬)</span>
+        </div>
+      </div>
+      <div class="item">
+        <h3>프로젝트 컨텍스트 메뉴</h3>
+        <p class="hint" style="color: #888; font-size: 0.85em; margin-bottom: 8px;">
+          프로젝트 링크에 마우스를 올리면 표시될 메뉴 항목입니다.<br>
+          형식: <code>메뉴이름 : /경로</code> (한 줄에 하나씩)
+        </p>
+        <%= text_area_tag 'settings[project_context_menu]', 
+            Setting[:plugin_redmine_tx_0_base][:project_context_menu],
+            rows: 5, 
+            style: 'width: 100%; font-family: monospace; font-size: 12px;',
+            placeholder: "이슈 : /issues\n버그현황 : /milestone/report/bugs" %>
+      </div>
+    </div>
+  </div>
+
   <!-- 제외 설정 그룹 -->
   <div class="section">
     <h3 class="title">보고 제외 설정</h3>

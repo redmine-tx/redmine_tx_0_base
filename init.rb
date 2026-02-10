@@ -6,7 +6,11 @@ Redmine::Plugin.register :redmine_tx_0_base do
   url 'http://example.com/path/to/plugin'
   author_url 'testors@gmail.com'
 
-  settings default: {'empty' => true}, partial: 'settings/tx_base'
+  settings default: {
+    'empty' => true,
+    'show_top_projects' => '1',  # 상단 메뉴바 프로젝트 바로가기 (기본: 켜짐)
+    'project_context_menu' => ''  # 프로젝트 컨텍스트 메뉴 항목
+  }, partial: 'settings/tx_base'
 
   menu :top_menu, :issues, 
   { controller: 'issues', action: 'index' }, 
@@ -27,5 +31,17 @@ Rails.application.config.after_initialize do
     column :end_date_delayed_on, filter: :date_past
     user_column :end_date_delayed_by  # 연기 시점의 담당자
     column :end_date_delayed_days, filter: { type: :integer }  # 연기 일수 (영업일 기준)
+  end
+  
+  # 플러그인 설정 변경 시 캐시 클리어
+  Setting.class_eval do
+    after_save :clear_tx_base_cache_if_needed
+    
+    def clear_tx_base_cache_if_needed
+      if self.name == 'plugin_redmine_tx_0_base'
+        Rails.cache.delete(TxBaseHook::PROJECTS_CACHE_KEY)
+        Rails.logger.info "TxBase: Cleared top projects cache due to settings change"
+      end
+    end
   end
 end
