@@ -5,3 +5,5 @@ en:
   field_end_date_delayed_by: "Delayed by (editor)"
   field_end_date_delayed_by_id: "Delayed by (editor)"
   field_end_date_delayed_days: "Delayed days"
+  field_fixed_version_plus: "Target Version+"
+  field_estimated_hours_plus: "Estimated Hours+"

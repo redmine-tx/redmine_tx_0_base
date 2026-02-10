@@ -31,6 +31,16 @@ Rails.application.config.after_initialize do
     column :end_date_delayed_on, filter: :date_past
     user_column :end_date_delayed_by  # 연기 시점의 담당자
     column :end_date_delayed_days, filter: { type: :integer }  # 연기 일수 (영업일 기준)
+
+    virtual_column :fixed_version_plus,
+      value: ->(issue) { issue.fixed_version_plus },
+      caption: :field_fixed_version_plus,
+      sortable: "#{Version.table_name}.effective_date"
+
+    virtual_column :estimated_hours_plus,
+      value: ->(issue) { issue.estimated_hours_plus },
+      caption: :field_estimated_hours_plus,
+      sortable: "estimated_hours"
   end
   
   # 플러그인 설정 변경 시 캐시 클리어

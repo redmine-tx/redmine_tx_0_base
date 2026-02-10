@@ -89,7 +89,51 @@ module TxBaseHelper
       end
     end
 
+    def fixed_version_plus
+      if self.fixed_version.present?
+        "<span class='tag-label-color' style='background-color: #{get_version_color(self.fixed_version)}'>#{self.fixed_version}</span>".html_safe
+      end
+    end
+
+    def estimated_hours_plus
+      if self.estimated_hours.present?
+        if estimated_hours >= 8 then
+          "#{estimated_hours.to_i / 8}일"
+        else
+          "#{estimated_hours.to_i}시간"
+        end
+      else
+        nil
+      end
+    end
+
+    def fixed_version_sort_value
+      if self.fixed_version.present?
+        if self.fixed_version.effective_date
+          self.fixed_version.effective_date.to_s + '|' + self.fixed_version.name
+        else
+          '9999-99-99' + '|' + self.fixed_version.name
+        end
+      end
+    end
+
     private
+
+    def get_version_color(version)
+      return "#ccc" unless version.effective_date
+      return "#900" if version.effective_date < Date.today
+      grade = [0, (version.effective_date - Date.today).to_i / 12].max
+      case grade
+      when 0
+        "#099"  # 기한 임박
+      when 1
+        "#4bb"  # 여유 있음
+      when 2
+        "#8bb"  # 충분한 시간
+      else
+        "#bbb"  # 기타
+      end
+    end
 
     def record_end_date_change_log
       # 완료 기한이 변경된 경우

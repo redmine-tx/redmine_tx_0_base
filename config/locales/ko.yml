@@ -4,3 +4,5 @@ ko:
   field_end_date_delayed_by: "연기자"
   field_end_date_delayed_by_id: "연기자"
   field_end_date_delayed_days: "연기 일수"
+  field_fixed_version_plus: "목표버전+"
+  field_estimated_hours_plus: "추정시간+"
