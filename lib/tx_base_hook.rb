@@ -20,6 +20,55 @@ class TxBaseHook < Redmine::Hook::ViewListener
     html.html_safe
   end
   
+  # 일감 상태 목록 페이지에 병합 버튼 주입
+  def view_layouts_base_body_bottom(context = {})
+    return '' unless User.current.admin?
+
+    controller = context[:controller]
+    return '' unless controller.is_a?(IssueStatusesController) && controller.action_name == 'index'
+
+    statuses = IssueStatus.sorted.to_a
+    merge_links = {}
+    statuses.each do |s|
+      url = Rails.application.routes.url_helpers.tx_status_merge_path(s)
+      merge_links[s.id] = url
+    end
+
+    javascript = <<~JS
+      <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        var mergeLinks = #{merge_links.to_json};
+        var rows = document.querySelectorAll('table.issue_statuses tbody tr');
+        rows.forEach(function(row) {
+          var deleteLink = row.querySelector('td.buttons a.icon-del, td.buttons a[data-method="delete"]');
+          if (!deleteLink) return;
+
+          var nameCell = row.querySelector('td.name a');
+          if (!nameCell) return;
+
+          var href = nameCell.getAttribute('href');
+          var match = href && href.match(/issue_statuses\\/(\\d+)/);
+          if (!match) return;
+
+          var statusId = parseInt(match[1]);
+          if (!mergeLinks[statusId]) return;
+
+          var mergeLink = document.createElement('a');
+          mergeLink.href = mergeLinks[statusId];
+          mergeLink.className = 'icon icon-copy';
+          mergeLink.title = '#{I18n.t(:button_merge)}';
+          mergeLink.textContent = '#{I18n.t(:button_merge)}';
+
+          deleteLink.parentNode.insertBefore(mergeLink, deleteLink);
+          deleteLink.parentNode.insertBefore(document.createTextNode(' '), deleteLink);
+        });
+      });
+      </script>
+    JS
+
+    javascript.html_safe
+  end
+
   # 상단 메뉴바에 프로젝트 링크 추가
   def view_layouts_base_html_head(context = {})
     return '' unless User.current.logged?

@@ -1,0 +1,127 @@
+<%= title [l(:label_issue_status_plural), issue_statuses_path], l(:label_merge_issue_status) %>
+
+<%= form_tag(tx_status_merge_path(@status), method: :post) do %>
+<div class="box">
+  <div style="margin-bottom: 15px;">
+    <strong><%= l(:label_merge_from) %>:</strong>
+    <span class="badge"><%= @status.name %> (id=<%= @status.id %>)</span>
+  </div>
+
+  <div style="margin-bottom: 15px;">
+    <label for="to_id"><strong><%= l(:label_merge_to) %>:</strong></label>
+    <%= select_tag 'to_id',
+      content_tag(:option, "--- #{l(:actionview_instancetag_blank_option)} ---", value: '') +
+      options_from_collection_for_select(@statuses, :id, :name),
+      id: 'merge-target-select' %>
+  </div>
+
+  <div id="merge-preview" style="display:none; margin-top: 15px;">
+    <div id="merge-closed-warning" class="flash warning" style="display:none; margin-bottom: 10px;">
+      <%= l(:warning_is_closed_mismatch) %>
+    </div>
+
+    <fieldset>
+      <legend><%= l(:label_merge_impact) %></legend>
+      <table class="list" style="margin-bottom: 0;">
+        <tbody>
+          <tr>
+            <td><%= l(:label_issue_plural) %></td>
+            <td id="cnt-issues" class="merge-count" style="text-align:right; font-weight:bold;"></td>
+          </tr>
+          <tr>
+            <td><%= l(:label_merge_journal_old) %></td>
+            <td id="cnt-jd-old" class="merge-count" style="text-align:right;"></td>
+          </tr>
+          <tr>
+            <td><%= l(:label_merge_journal_new) %></td>
+            <td id="cnt-jd-new" class="merge-count" style="text-align:right;"></td>
+          </tr>
+          <tr>
+            <td><%= l(:label_merge_noop_details) %></td>
+            <td id="cnt-noop" class="merge-count" style="text-align:right;"></td>
+          </tr>
+          <tr>
+            <td><%= l(:label_merge_wf_transitions) %></td>
+            <td id="cnt-wf" class="merge-count" style="text-align:right;"></td>
+          </tr>
+          <tr>
+            <td><%= l(:label_merge_wf_permissions) %></td>
+            <td id="cnt-wp" class="merge-count" style="text-align:right;"></td>
+          </tr>
+          <tr>
+            <td><%= l(:label_merge_trackers) %></td>
+            <td id="cnt-trackers" class="merge-count" style="text-align:right;"></td>
+          </tr>
+          <tr>
+            <td><%= l(:label_merge_queries) %></td>
+            <td id="cnt-queries" class="merge-count" style="text-align:right;"></td>
+          </tr>
+        </tbody>
+      </table>
+    </fieldset>
+  </div>
+
+  <div id="merge-loading" style="display:none; margin-top:10px;">
+    <span class="loading"><%= l(:label_loading) %></span>
+  </div>
+</div>
+
+<%= submit_tag l(:button_merge), id: 'merge-submit', disabled: true,
+    data: { confirm: l(:text_merge_confirm) } %>
+<%= link_to l(:button_cancel), issue_statuses_path %>
+<% end %>
+
+<%= javascript_tag do %>
+$(function() {
+  var $select = $('#merge-target-select');
+  var $preview = $('#merge-preview');
+  var $loading = $('#merge-loading');
+  var $submit = $('#merge-submit');
+  var $warning = $('#merge-closed-warning');
+
+  $select.on('change', function() {
+    var toId = $(this).val();
+    if (!toId) {
+      $preview.hide();
+      $submit.prop('disabled', true);
+      return;
+    }
+
+    $loading.show();
+    $preview.hide();
+    $submit.prop('disabled', true);
+
+    $.ajax({
+      url: '<%= preview_tx_status_merge_path(@status) %>',
+      data: { to_id: toId },
+      dataType: 'json',
+      success: function(data) {
+        $('#cnt-issues').text(data.issues || 0);
+        $('#cnt-jd-old').text(data.jd_old_value || 0);
+        $('#cnt-jd-new').text(data.jd_value || 0);
+        $('#cnt-noop').text(data.noop_details || 0);
+        $('#cnt-wf').text((data.wf_old || 0) + (data.wf_new || 0));
+        $('#cnt-wp').text((data.wp_old || 0) + (data.wp_new || 0));
+        $('#cnt-trackers').text(data.trackers || 0);
+        $('#cnt-queries').text(data.queries || 0);
+
+        if (data.is_closed_mismatch) {
+          $warning.show();
+        } else {
+          $warning.hide();
+        }
+
+        $loading.hide();
+        $preview.show();
+        $submit.prop('disabled', false);
+      },
+      error: function() {
+        $loading.hide();
+        $submit.prop('disabled', true);
+      }
+    });
+  });
+});
+<% end %>
+
+<% html_title l(:label_issue_status_plural), l(:label_merge_issue_status) %>
