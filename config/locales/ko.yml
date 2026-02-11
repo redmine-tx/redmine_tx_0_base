@@ -10,8 +10,8 @@ ko:
   # 일감 상태 병합
   button_merge: "병합"
   label_merge_issue_status: "일감 상태 병합"
-  label_merge_from: "병합 원본"
-  label_merge_to: "병합 대상"
+  label_merge_from: "이 상태가 제거됩니다"
+  label_merge_to: "이 상태로 병합됩니다"
   label_merge_impact: "영향 범위"
   label_merge_journal_old: "변경이력 (이전 값)"
   label_merge_journal_new: "변경이력 (변경 값)"

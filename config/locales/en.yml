@@ -11,8 +11,8 @@ en:
   # Issue status merge
   button_merge: "Merge"
   label_merge_issue_status: "Merge Issue Status"
-  label_merge_from: "Merge from"
-  label_merge_to: "Merge into"
+  label_merge_from: "This status will be removed"
+  label_merge_to: "Merge into this status"
   label_merge_impact: "Impact"
   label_merge_journal_old: "Journal details (old value)"
   label_merge_journal_new: "Journal details (new value)"
