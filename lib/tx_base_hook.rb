@@ -91,7 +91,8 @@ class TxBaseHook < Redmine::Hook::ViewListener
     html = <<-HTML
       <style>
         #tx-top-projects {
-          display: inline-block;
+          float: left;
+          list-style: none;
           margin-left: 15px;
           padding-left: 15px;
           border-left: 1px solid rgba(255,255,255,0.3);
@@ -147,7 +148,7 @@ class TxBaseHook < Redmine::Hook::ViewListener
           var contextMenuItems = #{context_menu_json};
           var hasContextMenu = #{has_context_menu};
           
-          var projectsContainer = document.createElement('span');
+          var projectsContainer = document.createElement('li');
           projectsContainer.id = 'tx-top-projects';
           
           var linksHtml = '#{project_links.gsub("'", "\\\\'")}';
@@ -183,7 +184,12 @@ class TxBaseHook < Redmine::Hook::ViewListener
             projectsContainer.innerHTML = linksHtml;
           }
           
-          topMenu.appendChild(projectsContainer);
+          var menuUl = topMenu.querySelector('ul');
+          if (menuUl) {
+            menuUl.appendChild(projectsContainer);
+          } else {
+            topMenu.appendChild(projectsContainer);
+          }
         });
       </script>
     HTML

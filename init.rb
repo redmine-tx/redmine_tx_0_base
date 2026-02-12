@@ -26,6 +26,7 @@ Rails.application.config.after_initialize do
   require_dependency File.expand_path('../lib/tx_base_helper/holiday_api', __FILE__)
   require_dependency File.expand_path('../lib/tx_base_helper/user_vacation_api', __FILE__)
   require_dependency File.expand_path('../lib/tx_base_helper/status_merger', __FILE__)
+  require_dependency File.expand_path('../lib/tx_base_helper/issues_helper_patch', __FILE__)
 
   TxBaseHelper.register_issue_query_columns do
     column :end_date_changed_on, filter: :date_past
