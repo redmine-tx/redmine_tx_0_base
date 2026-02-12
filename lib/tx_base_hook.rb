@@ -184,7 +184,7 @@ class TxBaseHook < Redmine::Hook::ViewListener
             projectsContainer.innerHTML = linksHtml;
           }
           
-          var menuUl = topMenu.querySelector('ul');
+          var menuUl = topMenu.querySelector(':scope > ul');
           if (menuUl) {
             menuUl.appendChild(projectsContainer);
           } else {
