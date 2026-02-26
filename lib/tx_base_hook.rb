@@ -25,8 +25,7 @@ class TxBaseHook < Redmine::Hook::ViewListener
     issue = context[:issue]
     view = context[:controller].view_context
 
-    tracker_name = issue.tracker.name
-    link_text = "#{tracker_name} ##{issue.id} #{issue.subject}"
+    link_text = "##{issue.id} #{issue.subject}"
     issue_full_url = view.issue_url(issue, only_path: false)
     icons_path = view.asset_path('icons.svg')
 
@@ -37,64 +36,44 @@ class TxBaseHook < Redmine::Hook::ViewListener
     <<~HTML.html_safe
       <script>
         $(function() {
-          // setTimeout(0)으로 다른 플러그인 훅(간트, 일정요약 등) 이후 실행 → prepend 시 가장 왼쪽 배치
-          setTimeout(function() {
-            var issueUrl = #{js_url};
-            var linkText = #{js_text};
+          var issueUrl = #{js_url};
+          var linkText = #{js_text};
 
-            var $ctx = $('div.main div.content div.contextual').first();
-            if ($ctx.length === 0) $ctx = $('#main .content div.contextual').first();
+          var $ctx = $('#content > div.contextual').first();
 
-            if ($ctx.length > 0 && !$ctx.find('#tx-copy-link-btn').length) {
-              var $btn = $('<a>', {
-                href: '#',
-                id: 'tx-copy-link-btn',
-                'class': 'icon icon-copy-link',
-                title: '링크 복사'
-              }).append(
-                '<svg class="s18 icon-svg" aria-hidden="true"><use href="#{icons_path}#icon--copy-link"></use></svg>',
-                $('<span>', { 'class': 'icon-label', text: '링크복사' })
-              ).on('click', function(e) {
-                e.preventDefault();
-                var el = this;
-                var htmlContent = '<a href="' + issueUrl + '">' + $('<span>').text(linkText).html() + '</a>';
+          if ($ctx.length > 0 && !$ctx.find('#tx-copy-link-btn').length) {
+            var $btn = $('<a>', {
+              href: '#',
+              id: 'tx-copy-link-btn',
+              'class': 'icon icon-copy-link',
+              title: '링크 복사'
+            }).append(
+              '<svg class="s18 icon-svg" aria-hidden="true"><use href="#{icons_path}#icon--copy-link"></use></svg>',
+              $('<span>', { 'class': 'icon-label', text: '링크복사' })
+            ).on('click', function(e) {
+              e.preventDefault();
+              var el = this;
+              var htmlContent = '<a href="' + issueUrl + '">' + $('<span>').text(linkText).html() + '</a>';
 
-                if (navigator.clipboard && window.ClipboardItem) {
-                  navigator.clipboard.write([new ClipboardItem({
-                    'text/html': new Blob([htmlContent], { type: 'text/html' }),
-                    'text/plain': new Blob([linkText], { type: 'text/plain' })
-                  })]).then(function() {
-                    showFeedback(el);
-                  }).catch(function() {
-                    fallbackCopy(linkText);
-                    showFeedback(el);
-                  });
-                } else {
-                  fallbackCopy(linkText);
-                  showFeedback(el);
-                }
-              });
-
-              $ctx.prepend(' ').prepend($btn);
-            }
-
-            function fallbackCopy(text) {
-              var ta = document.createElement('textarea');
-              ta.value = text;
-              ta.style.position = 'fixed';
-              ta.style.opacity = '0';
-              document.body.appendChild(ta);
-              ta.select();
+              var listener = function(ev) {
+                ev.clipboardData.setData('text/html', htmlContent);
+                ev.clipboardData.setData('text/plain', linkText);
+                ev.preventDefault();
+              };
+              document.addEventListener('copy', listener);
               document.execCommand('copy');
-              document.body.removeChild(ta);
-            }
+              document.removeEventListener('copy', listener);
+              showFeedback(el);
+            });
 
-            function showFeedback(el) {
-              var $label = $(el).find('.icon-label');
-              $label.text('복사됨!');
-              setTimeout(function() { $label.text('링크복사'); }, 1500);
-            }
-          }, 0);
+            $ctx.prepend(' ').prepend($btn);
+          }
+
+          function showFeedback(el) {
+            var $label = $(el).find('.icon-label');
+            $label.text('복사됨!');
+            setTimeout(function() { $label.text('링크복사'); }, 1500);
+          }
         });
       </script>
     HTML
