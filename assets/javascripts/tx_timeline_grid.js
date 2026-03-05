@@ -273,7 +273,8 @@ var TxTimelineGrid = (function() {
       var leftPx = (idx * widths.day) + (side === 'right' ? widths.day : 0);
 
       // 점선: 바디 영역용 (헤더 아래에서 시작)
-      result.linesHtml += '<div aria-hidden="true" style="position:absolute; top:0; bottom:0; left:' + leftPx + 'px; border-left:2px dashed ' + escapeHtml(color) + '; pointer-events:none;"></div>';
+      var lineStyle = marker.lineStyle === 'solid' ? 'solid' : 'dashed';
+      result.linesHtml += '<div aria-hidden="true" style="position:absolute; top:0; bottom:0; left:' + leftPx + 'px; border-left:2px ' + lineStyle + ' ' + escapeHtml(color) + '; pointer-events:none;"></div>';
 
       // 마커 아이템 정보 (헤더 마커 행에서 사용)
       if (name) {
