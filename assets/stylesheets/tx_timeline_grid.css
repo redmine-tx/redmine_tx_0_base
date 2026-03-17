@@ -251,12 +251,15 @@
 .tx-timeline-legend {
   margin-top: 20px;
   padding: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
 }
 
 .tx-legend-title {
   font-weight: bold;
   font-size: 13px;
-  margin-bottom: 10px;
   padding: 6px 10px;
   background-color: #e6e6e6;
   border: 1px solid #b0b0b0;
@@ -265,7 +268,7 @@
 
 .tx-legend-items {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   gap: 4px;
 }
 
