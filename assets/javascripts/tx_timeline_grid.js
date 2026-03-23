@@ -184,6 +184,20 @@ var TxTimelineGrid = (function() {
   }
 
   /**
+   * hex 색상을 어둡게 만들기
+   * @param {string} hexColor - #RRGGBB 형식
+   * @param {number} factor - 0~1 사이 값 (0에 가까울수록 더 어두움)
+   * @returns {string} 어두운 hex 색상
+   */
+  function darkenColor(hexColor, factor) {
+    var rgb = hexColor.replace('#', '');
+    var r = Math.round(parseInt(rgb.substr(0, 2), 16) * factor);
+    var g = Math.round(parseInt(rgb.substr(2, 2), 16) * factor);
+    var b = Math.round(parseInt(rgb.substr(4, 2), 16) * factor);
+    return '#' + ('0' + r.toString(16)).slice(-2) + ('0' + g.toString(16)).slice(-2) + ('0' + b.toString(16)).slice(-2);
+  }
+
+  /**
    * 날짜 문자열을 Date 객체로 변환
    * @param {string} dateStr - YYYY-MM-DD 형식
    * @returns {Date|null}
@@ -762,6 +776,9 @@ var TxTimelineGrid = (function() {
           // customFontColor가 있으면 사용, 없으면 밝기 기반 자동 계산
           fontColor = schedule.fontColor || (brightness > 128 ? '#000000' : '#ffffff');
           barStyle = 'background-color: ' + schedule.color + '; color: ' + fontColor + ';';
+          if (!schedule.isMuted) {
+            barStyle += ' border-color: ' + darkenColor(schedule.color, 0.65) + ';';
+          }
         } else if (schedule.fontColor) {
           // 배경색 없이 폰트 색상만 있는 경우
           fontColor = schedule.fontColor;
