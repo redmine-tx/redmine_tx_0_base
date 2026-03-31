@@ -56,6 +56,14 @@ module TxBaseHelper
         vacation_info.dig(login, :status)
       end
 
+      # 특정 사용자가 휴직 상태인지 확인
+      # @param user [User, String] User 객체 또는 로그인 ID
+      # @param date [Date] 확인할 날짜 (기본값: 오늘)
+      # @return [Boolean] 휴직 여부
+      def on_leave_of_absence?(user, date = Date.today)
+        work_status(user, date) == '휴직'
+      end
+
       # 특정 사용자가 반차인지 확인
       # @param user [User, String] User 객체 또는 로그인 ID
       # @param date [Date] 확인할 날짜 (기본값: 오늘)
