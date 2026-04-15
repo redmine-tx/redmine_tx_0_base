@@ -99,7 +99,7 @@
 
   function buildIndicator(issueId, memo) {
     var indicator = document.createElement('span');
-    indicator.className = 'tx-issue-memo-indicator';
+    indicator.className = 'tx-issue-memo-indicator tx-issue-no-tooltip';
     indicator.setAttribute('data-issue-id', issueId);
     indicator.setAttribute('data-tx-memo', memo);
     indicator.setAttribute('aria-label', memo);
