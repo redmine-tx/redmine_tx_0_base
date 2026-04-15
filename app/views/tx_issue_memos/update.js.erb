@@ -3,6 +3,9 @@ $('#ajax-modal').html('<%= escape_javascript(render(partial: 'tx_issue_memos/for
 $('#tx_issue_memo_value').focus();
 <% else %>
 hideModal();
+if (window.TxIssueMemoIndicator) {
+  window.TxIssueMemoIndicator.setMemo(<%= @issue.id %>, <%= raw(@issue.memo.to_s.to_json) %>);
+}
 $('#content > .flash').remove();
 $('#content').prepend('<%= escape_javascript(render_flash_messages) %>');
 <% end %>

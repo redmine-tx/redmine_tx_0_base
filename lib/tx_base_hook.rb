@@ -145,23 +145,47 @@ class TxBaseHook < Redmine::Hook::ViewListener
 
   # 상단 메뉴바에 프로젝트 링크 추가
   def view_layouts_base_html_head(context = {})
-    return '' unless User.current.logged?
-    
-    # 설정에서 기능이 꺼져 있으면 표시하지 않음
-    return '' unless Setting.plugin_redmine_tx_0_base[:show_top_projects] == '1'
-    
+    return ''.html_safe unless User.current.logged?
+
+    html = ActiveSupport::SafeBuffer.new
+    html << render_base_assets(context)
+    html << render_top_projects_head(context)
+    html
+  end
+
+  private
+
+  def render_base_assets(context)
+    view = context[:controller]&.view_context
+    return ''.html_safe unless view
+
+    config = {
+      enabled: TxBaseHelper.issue_memo_custom_field.present?,
+      lookupUrl: view.tx_issue_memos_path
+    }
+
+    html = ActiveSupport::SafeBuffer.new
+    html << view.stylesheet_link_tag('tx_base', plugin: 'redmine_tx_0_base')
+    html << view.javascript_include_tag('tx_issue_memo_indicator', plugin: 'redmine_tx_0_base')
+    html << view.javascript_tag("window.txIssueMemoIndicatorConfig = #{config.to_json};")
+    html
+  end
+
+  def render_top_projects_head(context)
+    return ''.html_safe unless Setting.plugin_redmine_tx_0_base[:show_top_projects] == '1'
+
     # 12시간 캐시된 프로젝트 링크 사용
     project_links = Rails.cache.fetch(PROJECTS_CACHE_KEY, expires_in: PROJECTS_CACHE_DURATION) do
       fetch_project_links
     end
-    
-    return '' if project_links.blank?
-    
+
+    return ''.html_safe if project_links.blank?
+
     # 컨텍스트 메뉴 항목 파싱
     context_menu_items = parse_context_menu_items
     context_menu_json = context_menu_items.to_json
     has_context_menu = context_menu_items.any?
-    
+
     html = <<-HTML
       <style>
         #tx-top-projects {
@@ -267,11 +291,9 @@ class TxBaseHook < Redmine::Hook::ViewListener
         });
       </script>
     HTML
-    
+
     html.html_safe
   end
-  
-  private
 
   def render_hook_partial(context, options)
     if context[:hook_caller].respond_to?(:render)

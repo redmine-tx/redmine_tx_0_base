@@ -1,8 +1,12 @@
 class TxIssueMemosController < ApplicationController
   before_action :require_login
-  before_action :find_issue
-  before_action :authorize_issue_edit
-  before_action :find_memo_custom_field
+  before_action :find_issue, only: [:edit, :update]
+  before_action :authorize_issue_edit, only: [:edit, :update]
+  before_action :find_memo_custom_field, only: [:edit, :update]
+
+  def index
+    render json: { issue_memos: TxBaseHelper.issue_memos_for(requested_issue_ids, User.current) }
+  end
 
   def edit
     respond_to do |format|
@@ -45,5 +49,13 @@ class TxIssueMemosController < ApplicationController
 
   def memo_value
     params.dig(:tx_issue_memo, :value).to_s
+  end
+
+  def requested_issue_ids
+    Array(params[:ids] || params[:issue_ids]).each_with_object([]) do |value, ids|
+      value.to_s.split(',').each do |token|
+        ids << token.to_i if token.match?(/\A\d+\z/)
+      end
+    end.select(&:positive?).uniq.take(200)
   end
 end

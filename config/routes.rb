@@ -3,6 +3,7 @@ RedmineApp::Application.routes.draw do
   get 'tx_base/top_parent_issues', to: 'tx_base_autocompletes#top_parent_issues', as: 'tx_base_top_parent_issues'
 
   # 일감 빠른 메모
+  get   'tx_issue_memos', to: 'tx_issue_memos#index', as: 'tx_issue_memos'
   get   'issues/:issue_id/tx_issue_memo/edit', to: 'tx_issue_memos#edit', as: 'edit_tx_issue_memo'
   match 'issues/:issue_id/tx_issue_memo', to: 'tx_issue_memos#update', via: [:patch, :put], as: 'tx_issue_memo'
 

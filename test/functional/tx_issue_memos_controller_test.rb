@@ -24,7 +24,12 @@ class TxIssueMemosControllerTest < Redmine::ControllerTest
 
   def setup
     @request.session[:user_id] = 2
+    User.current = User.find(2)
     @issue = Issue.find(1)
+  end
+
+  def teardown
+    User.current = nil
   end
 
   def test_should_open_edit_modal_with_current_memo
@@ -49,6 +54,18 @@ class TxIssueMemosControllerTest < Redmine::ControllerTest
       assert_response :success
       assert_equal 'Updated memo', @issue.reload.memo
       assert_match 'text/javascript', response.content_type
+    end
+  end
+
+  def test_should_return_issue_memos_for_visible_issues
+    with_issue_memo_setting do
+      compatible_request :get, :index, format: :json, ids: [@issue.id]
+
+      assert_response :success
+      assert_match 'application/json', response.content_type
+
+      body = JSON.parse(response.body)
+      assert_equal '125', body.dig('issue_memos', @issue.id.to_s)
     end
   end
 

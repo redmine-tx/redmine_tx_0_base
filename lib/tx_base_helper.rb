@@ -31,6 +31,20 @@ module TxBaseHelper
     field
   end
 
+  def self.issue_memos_for(issue_ids, user = User.current)
+    return {} unless issue_memo_custom_field
+
+    ids = Array(issue_ids).map(&:to_i).select(&:positive?).uniq
+    return {} if ids.empty?
+
+    Issue.visible.where(id: ids)
+         .preload(:project, :tracker, custom_values: :custom_field)
+         .each_with_object({}) do |issue, memos|
+      memo = issue.memo(user)
+      memos[issue.id] = memo if memo.present?
+    end
+  end
+
   # 일감 리스트 테이블용 헬퍼 메서드들
   # 컬럼 정렬 값 반환
   def get_column_sort_value(issue, column)
@@ -148,13 +162,20 @@ module TxBaseHelper
       available_custom_fields.find { |candidate| candidate.id == field.id }
     end
 
-    def memo
+    def memo_visible_custom_field(user = User.current)
       field = memo_custom_field
+      return nil unless field
+
+      visible_custom_field_values(user).find { |value| value.custom_field_id == field.id }&.custom_field
+    end
+
+    def memo(user = User.current)
+      field = memo_visible_custom_field(user)
       field ? custom_field_value(field) : nil
     end
 
-    def memo_present?
-      memo.present?
+    def memo_present?(user = User.current)
+      memo(user).present?
     end
 
     def memo_editable?(user = User.current)
