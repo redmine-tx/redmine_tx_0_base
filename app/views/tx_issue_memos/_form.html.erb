@@ -1,0 +1,29 @@
+<div class="box tabular">
+  <%= form_tag tx_issue_memo_path(issue_id: @issue.id), remote: true, method: :patch, id: 'tx-issue-memo-form' do %>
+    <% if @issue.errors.any? %>
+      <div class="flash error">
+        <ul>
+          <% @issue.errors.full_messages.each do |message| %>
+            <li><%= message %></li>
+          <% end %>
+        </ul>
+      </div>
+    <% end %>
+
+    <p>
+      <label for="tx_issue_memo_value"><%= @memo_custom_field.name %></label>
+      <%= text_area_tag 'tx_issue_memo[value]',
+                        @issue.memo,
+                        id: 'tx_issue_memo_value',
+                        rows: 8,
+                        style: 'width: 98%; max-width: 98%;' %>
+    </p>
+
+    <p class="hint"><%= l(:text_tx_issue_memo_blank_clears) %></p>
+
+    <p class="buttons">
+      <%= submit_tag l(:button_save), class: 'button' %>
+      <%= link_to l(:button_cancel), '#', onclick: 'hideModal(this); return false;', class: 'button button-cancel' %>
+    </p>
+  <% end %>
+</div>

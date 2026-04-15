@@ -26,3 +26,10 @@ ko:
   error_merge_target_required: "병합 대상을 선택해주세요."
   error_status_not_found: "일감 상태를 찾을 수 없습니다."
   error_merge_failed: "병합 실패: %{message}"
+
+  label_tx_issue_memo: "메모"
+  label_tx_issue_memo_edit_title: "일감 #%{issue_id} 메모"
+  label_tx_issue_memo_custom_field: "빠른 메모 커스텀필드"
+  text_tx_issue_memo_custom_field_help: "일감 우클릭 메뉴에서 페이지 이동 없이 수정할 문자열/텍스트 커스텀필드입니다."
+  text_tx_issue_memo_blank_clears: "비워두고 저장하면 메모가 삭제됩니다."
+  notice_tx_issue_memo_updated: "메모를 저장했습니다."

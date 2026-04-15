@@ -1,0 +1,8 @@
+<% if @issue.errors.any? %>
+$('#ajax-modal').html('<%= escape_javascript(render(partial: 'tx_issue_memos/form')) %>');
+$('#tx_issue_memo_value').focus();
+<% else %>
+hideModal();
+$('#content > .flash').remove();
+$('#content').prepend('<%= escape_javascript(render_flash_messages) %>');
+<% end %>

@@ -79,6 +79,21 @@ class TxBaseHook < Redmine::Hook::ViewListener
     HTML
   end
 
+  def view_issues_context_menu_end(context = {})
+    issues = Array(context[:issues]).compact
+    issue = issues.one? ? issues.first : nil
+    return ''.html_safe unless issue
+
+    memo_custom_field = TxBaseHelper.issue_memo_custom_field_for(issue, User.current)
+    return ''.html_safe unless memo_custom_field
+
+    render_hook_partial(
+      context,
+      partial: 'context_menus/tx_issue_memo',
+      locals: context.merge(issue: issue, tx_issue_memo_custom_field: memo_custom_field)
+    )
+  end
+
   # 일감 상태 목록 페이지에 병합 버튼 주입
   def view_layouts_base_body_bottom(context = {})
     return '' unless User.current.admin?
@@ -257,6 +272,16 @@ class TxBaseHook < Redmine::Hook::ViewListener
   end
   
   private
+
+  def render_hook_partial(context, options)
+    if context[:hook_caller].respond_to?(:render)
+      context[:hook_caller].send(:render, options)
+    elsif context[:controller].is_a?(ActionController::Base)
+      context[:controller].send(:render_to_string, options)
+    else
+      ''
+    end
+  end
   
   # 컨텍스트 메뉴 항목 파싱
   def parse_context_menu_items
@@ -304,4 +329,3 @@ class TxBaseHook < Redmine::Hook::ViewListener
     HTML
   end
 end
-

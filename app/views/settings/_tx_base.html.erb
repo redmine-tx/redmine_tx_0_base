@@ -1,4 +1,7 @@
 <div class="container">
+  <% tx_issue_memo_fields = TxBaseHelper.issue_memo_custom_fields.map do |field|
+       ["#{field.name} (##{field.id}, #{field.field_format})", field.id.to_s]
+     end %>
   
   <!-- 상단 메뉴 설정 -->
   <div class="section">
@@ -22,6 +25,17 @@
             rows: 5, 
             style: 'width: 100%; font-family: monospace; font-size: 12px;',
             placeholder: "이슈 : /issues\n버그현황 : /milestone/report/bugs" %>
+      </div>
+      <div class="item">
+        <h3><%= l(:label_tx_issue_memo_custom_field) %></h3>
+        <div class="select-wrapper">
+          <%= select_tag 'settings[issue_memo_custom_field_id]',
+              options_for_select([[l(:label_none), '']] + tx_issue_memo_fields,
+                                 Setting[:plugin_redmine_tx_0_base][:issue_memo_custom_field_id].to_s) %>
+        </div>
+        <div class="hint" style="color: #888; font-size: 0.85em;">
+          <%= l(:text_tx_issue_memo_custom_field_help) %>
+        </div>
       </div>
     </div>
   </div>
@@ -203,7 +217,3 @@
   }
 }
 </style>
-
-..
-
-<%= Setting[:plugin_redmine_tx_0_base] %>

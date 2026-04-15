@@ -1,10 +1,34 @@
 module TxBaseHelper
+  ISSUE_MEMO_FIELD_FORMATS = %w[string text].freeze
+
   def self.config_arr(key)
     Setting[:plugin_redmine_tx_0_base][key].to_s.tr('[]"','').split(',').map(&:to_i)
   end
 
   def self.config(key)
     Setting[:plugin_redmine_tx_0_base][key]
+  end
+
+  def self.issue_memo_custom_fields
+    IssueCustomField.where(field_format: ISSUE_MEMO_FIELD_FORMATS).sorted.to_a
+  end
+
+  def self.issue_memo_custom_field
+    field_id = config(:issue_memo_custom_field_id).to_i
+    return nil if field_id <= 0
+
+    issue_memo_custom_fields.find { |field| field.id == field_id }
+  end
+
+  def self.issue_memo_custom_field_for(issue, user = User.current)
+    return nil unless issue
+    return nil unless issue.attributes_editable?(user)
+
+    field = issue_memo_custom_field
+    return nil unless field
+    return nil unless issue.editable_custom_fields(user).any? { |candidate| candidate.id == field.id }
+
+    field
   end
 
   # 일감 리스트 테이블용 헬퍼 메서드들
@@ -115,6 +139,48 @@ module TxBaseHelper
           '9999-99-99' + '|' + self.fixed_version.name
         end
       end
+    end
+
+    def memo_custom_field
+      field = TxBaseHelper.issue_memo_custom_field
+      return nil unless field
+
+      available_custom_fields.find { |candidate| candidate.id == field.id }
+    end
+
+    def memo
+      field = memo_custom_field
+      field ? custom_field_value(field) : nil
+    end
+
+    def memo_present?
+      memo.present?
+    end
+
+    def memo_editable?(user = User.current)
+      field = memo_custom_field
+      return false unless field
+      return false unless attributes_editable?(user)
+
+      editable_custom_fields(user).any? { |candidate| candidate.id == field.id }
+    end
+
+    def memo=(value)
+      field = memo_custom_field
+      return value unless field
+
+      self.custom_field_values = { field.id.to_s => value.to_s }
+      value
+    end
+
+    def update_memo!(value, user: User.current)
+      return false unless memo_editable?(user)
+
+      init_journal(user)
+      send(:safe_attributes=, {
+        'custom_field_values' => { memo_custom_field.id.to_s => value.to_s }
+      }, user)
+      save
     end
 
     private

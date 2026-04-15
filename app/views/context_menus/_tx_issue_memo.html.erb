@@ -1,0 +1,8 @@
+<li>
+  <%= context_menu_link(
+        sprite_icon('edit', l(:label_tx_issue_memo)),
+        edit_tx_issue_memo_path(issue_id: issue.id),
+        remote: true,
+        class: 'icon icon-edit'
+      ) %>
+</li>

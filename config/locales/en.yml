@@ -27,3 +27,10 @@ en:
   error_merge_target_required: "Please select a merge target."
   error_status_not_found: "Issue status not found."
   error_merge_failed: "Merge failed: %{message}"
+
+  label_tx_issue_memo: "Memo"
+  label_tx_issue_memo_edit_title: "Issue #%{issue_id} Memo"
+  label_tx_issue_memo_custom_field: "Quick memo custom field"
+  text_tx_issue_memo_custom_field_help: "String/text issue custom field to edit from the issue context menu without leaving the page."
+  text_tx_issue_memo_blank_clears: "Leave it blank and save to clear the memo."
+  notice_tx_issue_memo_updated: "Memo saved."

@@ -1,0 +1,3 @@
+$('#ajax-modal').html('<%= escape_javascript(render(partial: 'tx_issue_memos/form')) %>');
+showModal('ajax-modal', '600px', '<%= escape_javascript l(:label_tx_issue_memo_edit_title, issue_id: @issue.id) %>');
+$('#tx_issue_memo_value').focus().trigger('select');
