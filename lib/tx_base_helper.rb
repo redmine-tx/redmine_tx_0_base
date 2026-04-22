@@ -80,6 +80,7 @@ module TxBaseHelper
     when :updated_on then format_time(issue.updated_on)
     when :start_date then format_date(issue.start_date)
     when :due_date then format_date(issue.due_date)
+    when :first_due_date then issue.respond_to?(:first_due_date) ? format_date(issue.first_due_date) : nil
     when :tip then "<font color='red'>#{issue.tip}</font>".html_safe
     when :assigned_to then issue.assigned_to_id ? link_to_principal(issue.assigned_to) : ''
     when :estimated_hours then issue.estimated_hours_plus
@@ -225,8 +226,9 @@ module TxBaseHelper
     def record_end_date_change_log
       # 완료 기한이 변경된 경우
       if respond_to?(:due_date_changed?) && due_date_changed?
-        now = Time.now
+        now = Time.current
         self.end_date_changed_on = now
+        preserve_first_due_date!
 
         # 완료 기한이 뒤로 밀린 경우 (지연)
         # due_date_was: 변경 전 날짜, due_date: 변경 후 날짜
@@ -326,16 +328,25 @@ module TxBaseHelper
     end
 
     def update_end_date_changed_on!
-      # 최신 저널부터 역순으로 탐색
-      journals_with_due_date = journals.reorder(created_on: :desc).joins(:details).where(journal_details: { prop_key: 'due_date' })
+      journals_with_due_date = journals.reorder(created_on: :desc)
+                                    .joins(:details)
+                                    .where(journal_details: { prop_key: 'due_date' })
 
       last_change = journals_with_due_date.first
+      first_due_date = nil
 
-      if last_change
-        update_columns(end_date_changed_on: last_change.created_on)
-      else
-        update_columns(end_date_changed_on: created_on)
+      journals.reorder(created_on: :asc)
+              .joins(:details)
+              .where(journal_details: { prop_key: 'due_date' })
+              .each do |journal|
+        detail = journal.details.find { |d| d.prop_key == 'due_date' }
+        next unless detail
+
+        first_due_date = parse_due_date_value(detail.old_value) || parse_due_date_value(detail.value)
+        break if first_due_date.present?
       end
+
+      first_due_date ||= due_date
 
       # 지연 발생 시각 찾기 (과거 이력 뒤지기)
       # 가장 최근에 '지연'이 발생했던 시점을 찾음
@@ -364,6 +375,11 @@ module TxBaseHelper
         end
       end
 
+      updated_columns = {
+        end_date_changed_on: last_change ? last_change.created_on : created_on,
+        first_due_date: first_due_date
+      }
+
       if last_delay_journal
         detail = last_delay_journal.details.find { |d| d.prop_key == 'due_date' }
         old_date = Date.parse(detail.old_value)
@@ -371,19 +387,40 @@ module TxBaseHelper
 
         delayed_days = TxBaseHelper.business_days_between(old_date, new_date)
 
-        update_columns(
+        updated_columns.merge!(
           end_date_delayed_on: last_delay_journal.created_on,
           end_date_delayed_by_id: last_delay_journal.user_id,  # 일정 수정 조작자
           end_date_delayed_days: delayed_days
         )
       else
         # 작업 시작(진척도 > 0 또는 진행중 이상 상태) 후 지연이 없으면 nil로 초기화
-        update_columns(
+        updated_columns.merge!(
           end_date_delayed_on: nil,
           end_date_delayed_by_id: nil,
           end_date_delayed_days: nil
         )
       end
+
+      update_columns(updated_columns)
+    end
+
+    private
+
+    def preserve_first_due_date!
+      return unless respond_to?(:first_due_date) && respond_to?(:first_due_date=)
+      return if first_due_date.present?
+
+      self.first_due_date = due_date_was if due_date_was.present?
+      self.first_due_date = due_date if first_due_date.blank? && due_date.present?
+    end
+
+    def parse_due_date_value(value)
+      return nil if value.blank?
+      return value.to_date if value.respond_to?(:to_date)
+
+      Date.parse(value.to_s)
+    rescue ArgumentError, TypeError
+      nil
     end
   end
 

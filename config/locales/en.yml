@@ -1,6 +1,7 @@
 # English strings go here for Rails i18n
 en:
   field_end_date_changed_on: "Due date changed on"
+  field_first_due_date: "Original due date"
   field_end_date_delayed_on: "Due date delayed on"
   field_end_date_delayed_by: "Delayed by (editor)"
   field_end_date_delayed_by_id: "Delayed by (editor)"
