@@ -41,8 +41,37 @@ module TxBaseHelper
          .preload(:project, :tracker, custom_values: :custom_field)
          .each_with_object({}) do |issue, memos|
       memo = issue.memo(user)
-      memos[issue.id] = memo if memo.present?
+         memos[issue.id] = memo if memo.present?
     end
+  end
+
+  def self.version_delay_reset?(old_version_id, new_version_id, cache = nil)
+    old_effective_date = version_effective_date(old_version_id, cache)
+    new_effective_date = version_effective_date(new_version_id, cache)
+
+    old_effective_date.present? &&
+      new_effective_date.present? &&
+      new_effective_date > old_effective_date
+  end
+
+  def self.version_effective_date(version_id, cache = nil)
+    normalized_id = normalize_version_id(version_id)
+    return nil unless normalized_id
+
+    if cache
+      return cache[normalized_id] if cache.key?(normalized_id)
+
+      cache[normalized_id] = Version.where(id: normalized_id).pick(:effective_date)
+    else
+      Version.where(id: normalized_id).pick(:effective_date)
+    end
+  end
+
+  def self.normalize_version_id(version_id)
+    return nil if version_id.blank?
+
+    normalized_id = version_id.to_i
+    normalized_id.positive? ? normalized_id : nil
   end
 
   # 일감 리스트 테이블용 헬퍼 메서드들
@@ -224,19 +253,29 @@ module TxBaseHelper
     end
 
     def record_end_date_change_log
+      reset_due_date_baseline = milestone_due_date_reset_required?
+
+      if reset_due_date_baseline
+        reset_first_due_date_baseline!
+        clear_end_date_delay_tracking!
+      end
+
       # 완료 기한이 변경된 경우
       if respond_to?(:due_date_changed?) && due_date_changed?
         now = Time.current
         self.end_date_changed_on = now
-        preserve_first_due_date!
 
-        # 완료 기한이 뒤로 밀린 경우 (지연)
-        # due_date_was: 변경 전 날짜, due_date: 변경 후 날짜
-        # 작업 시작 이후(진척도 > 0 또는 상태가 진행중 이상)에만 지연으로 기록
-        if due_date_was.present? && due_date.present? && due_date > due_date_was && work_started_at?(now)
-          self.end_date_delayed_on = now
-          self.end_date_delayed_by_id = User.current.id  # 일정 수정 조작자
-          self.end_date_delayed_days = TxBaseHelper.business_days_between(due_date_was, due_date)
+        unless reset_due_date_baseline
+          preserve_first_due_date!
+
+          # 완료 기한이 뒤로 밀린 경우 (지연)
+          # due_date_was: 변경 전 날짜, due_date: 변경 후 날짜
+          # 작업 시작 이후(진척도 > 0 또는 상태가 진행중 이상)에만 지연으로 기록
+          if due_date_was.present? && due_date.present? && due_date > due_date_was && work_started_at?(now)
+            self.end_date_delayed_on = now
+            self.end_date_delayed_by_id = User.current.id  # 일정 수정 조작자
+            self.end_date_delayed_days = TxBaseHelper.business_days_between(due_date_was, due_date)
+          end
         end
       end
     end
@@ -328,69 +367,25 @@ module TxBaseHelper
     end
 
     def update_end_date_changed_on!
-      journals_with_due_date = journals.reorder(created_on: :desc)
-                                    .joins(:details)
-                                    .where(journal_details: { prop_key: 'due_date' })
-
-      last_change = journals_with_due_date.first
-      first_due_date = nil
-
-      journals.reorder(created_on: :asc)
-              .joins(:details)
-              .where(journal_details: { prop_key: 'due_date' })
-              .each do |journal|
-        detail = journal.details.find { |d| d.prop_key == 'due_date' }
-        next unless detail
-
-        first_due_date = parse_due_date_value(detail.old_value) || parse_due_date_value(detail.value)
-        break if first_due_date.present?
+      tracking_journals = due_date_tracking_journals
+      last_change = tracking_journals.reverse.find do |journal|
+        due_date_tracking_detail_for(journal, 'due_date').present?
       end
-
-      first_due_date ||= due_date
-
-      # 지연 발생 시각 찾기 (과거 이력 뒤지기)
-      # 가장 최근에 '지연'이 발생했던 시점을 찾음
-      # 단, 작업 시작 이후(진척도 > 0 또는 상태가 진행중 이상)에 발생한 지연만 대상
-      last_delay_journal = nil
-
-      journals_with_due_date.each do |journal|
-        detail = journal.details.find { |d| d.prop_key == 'due_date' }
-        old_value = detail.old_value
-        new_value = detail.value
-
-        # 날짜 비교를 위해 파싱 (String -> Date)
-        begin
-          old_date = old_value.present? ? Date.parse(old_value) : nil
-          new_date = new_value.present? ? Date.parse(new_value) : nil
-
-          if old_date && new_date && new_date > old_date
-            # 해당 시점에 작업이 시작되었는지 확인 (진척도 > 0 또는 상태가 진행중 이상)
-            if work_started_at?(journal.created_on)
-              last_delay_journal = journal
-              break # 가장 최근의 지연 발견 시 중단
-            end
-          end
-        rescue ArgumentError
-          # 날짜 파싱 실패 시 무시
-        end
-      end
+      tracking_state = rebuild_due_date_tracking_state(tracking_journals)
 
       updated_columns = {
         end_date_changed_on: last_change ? last_change.created_on : created_on,
-        first_due_date: first_due_date
+        first_due_date: tracking_state[:first_due_date]
       }
 
-      if last_delay_journal
-        detail = last_delay_journal.details.find { |d| d.prop_key == 'due_date' }
-        old_date = Date.parse(detail.old_value)
-        new_date = Date.parse(detail.value)
-
-        delayed_days = TxBaseHelper.business_days_between(old_date, new_date)
-
+      if tracking_state[:last_delay]
         updated_columns.merge!(
-          end_date_delayed_on: last_delay_journal.created_on,
-          end_date_delayed_by_id: last_delay_journal.user_id,  # 일정 수정 조작자
-          end_date_delayed_days: delayed_days
+          end_date_delayed_on: tracking_state[:last_delay][:journal].created_on,
+          end_date_delayed_by_id: tracking_state[:last_delay][:journal].user_id,  # 일정 수정 조작자
+          end_date_delayed_days: TxBaseHelper.business_days_between(
+            tracking_state[:last_delay][:old_date],
+            tracking_state[:last_delay][:new_date]
+          )
         )
       else
         # 작업 시작(진척도 > 0 또는 진행중 이상 상태) 후 지연이 없으면 nil로 초기화
@@ -414,6 +409,102 @@ module TxBaseHelper
       self.first_due_date = due_date if first_due_date.blank? && due_date.present?
     end
 
+    def reset_first_due_date_baseline!
+      return unless respond_to?(:first_due_date) && respond_to?(:first_due_date=)
+
+      self.first_due_date = due_date
+    end
+
+    def clear_end_date_delay_tracking!
+      self.end_date_delayed_on = nil
+      self.end_date_delayed_by_id = nil
+      self.end_date_delayed_days = nil
+    end
+
+    def milestone_due_date_reset_required?
+      return false unless respond_to?(:fixed_version_id_changed?) && fixed_version_id_changed?
+
+      TxBaseHelper.version_delay_reset?(fixed_version_id_was, fixed_version_id)
+    end
+
+    def due_date_tracking_journals
+      journals.reorder(created_on: :asc, id: :asc)
+              .joins(:details)
+              .where(journal_details: { prop_key: %w[due_date fixed_version_id] })
+              .distinct
+              .preload(:details)
+              .to_a
+    end
+
+    def rebuild_due_date_tracking_state(tracking_journals)
+      current_due_date = initial_due_date_from_history(tracking_journals)
+      current_fixed_version_id = initial_fixed_version_id_from_history(tracking_journals)
+      tracked_first_due_date = current_due_date
+      last_delay = nil
+
+      tracking_journals.each do |journal|
+        due_date_detail = due_date_tracking_detail_for(journal, 'due_date')
+        fixed_version_detail = due_date_tracking_detail_for(journal, 'fixed_version_id')
+        next unless due_date_detail || fixed_version_detail
+
+        new_due_date = due_date_detail ? parse_due_date_value(due_date_detail.value) : current_due_date
+        new_fixed_version_id = fixed_version_detail ? parse_version_id_value(fixed_version_detail.value) : current_fixed_version_id
+        baseline_reset_applied = fixed_version_detail.present? &&
+                                 TxBaseHelper.version_delay_reset?(current_fixed_version_id, new_fixed_version_id)
+
+        if baseline_reset_applied
+          tracked_first_due_date = new_due_date
+          last_delay = nil
+        elsif tracked_first_due_date.nil? && due_date_detail.present? && new_due_date.present?
+          tracked_first_due_date = new_due_date
+        end
+
+        unless baseline_reset_applied
+          if due_date_detail.present? &&
+             current_due_date.present? &&
+             new_due_date.present? &&
+             new_due_date > current_due_date &&
+             work_started_at?(journal.created_on)
+            last_delay = {
+              journal: journal,
+              old_date: current_due_date,
+              new_date: new_due_date
+            }
+          end
+        end
+
+        current_due_date = new_due_date if due_date_detail.present?
+        current_fixed_version_id = new_fixed_version_id if fixed_version_detail.present?
+      end
+
+      {
+        first_due_date: tracked_first_due_date,
+        last_delay: last_delay
+      }
+    end
+
+    def initial_due_date_from_history(tracking_journals)
+      first_due_date_journal = tracking_journals.find do |journal|
+        due_date_tracking_detail_for(journal, 'due_date').present?
+      end
+      return due_date unless first_due_date_journal
+
+      parse_due_date_value(due_date_tracking_detail_for(first_due_date_journal, 'due_date').old_value)
+    end
+
+    def initial_fixed_version_id_from_history(tracking_journals)
+      first_fixed_version_journal = tracking_journals.find do |journal|
+        due_date_tracking_detail_for(journal, 'fixed_version_id').present?
+      end
+      return fixed_version_id unless first_fixed_version_journal
+
+      parse_version_id_value(due_date_tracking_detail_for(first_fixed_version_journal, 'fixed_version_id').old_value)
+    end
+
+    def due_date_tracking_detail_for(journal, prop_key)
+      journal.details.find { |detail| detail.prop_key == prop_key }
+    end
+
     def parse_due_date_value(value)
       return nil if value.blank?
       return value.to_date if value.respond_to?(:to_date)
@@ -421,6 +512,10 @@ module TxBaseHelper
       Date.parse(value.to_s)
     rescue ArgumentError, TypeError
       nil
+    end
+
+    def parse_version_id_value(value)
+      TxBaseHelper.normalize_version_id(value)
     end
   end
 
