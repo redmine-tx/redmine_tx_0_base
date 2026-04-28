@@ -54,6 +54,8 @@ class TxIssueMemosControllerTest < Redmine::ControllerTest
       assert_response :success
       assert_equal 'Updated memo', @issue.reload.memo
       assert_match 'text/javascript', response.content_type
+      assert_includes response.body, 'Updated memo'
+      assert_includes response.body, User.current.name
     end
   end
 
@@ -66,6 +68,24 @@ class TxIssueMemosControllerTest < Redmine::ControllerTest
 
       body = JSON.parse(response.body)
       assert_equal '125', body.dig('issue_memos', @issue.id.to_s)
+      assert_equal '125', body.dig('issue_memo_details', @issue.id.to_s, 'value')
+    end
+  end
+
+  def test_should_return_issue_memo_author_details
+    with_issue_memo_setting do
+      compatible_xhr_request :patch, :update,
+                             issue_id: @issue.id,
+                             tx_issue_memo: { value: 'Authored memo' }
+      compatible_request :get, :index, format: :json, ids: [@issue.id]
+
+      assert_response :success
+
+      detail = JSON.parse(response.body).dig('issue_memo_details', @issue.id.to_s)
+      assert_equal 'Authored memo', detail['value']
+      assert_equal User.current.id, detail.dig('author', 'id')
+      assert_equal User.current.name, detail.dig('author', 'name')
+      assert detail['updated_on'].present?
     end
   end
 

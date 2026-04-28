@@ -4,7 +4,7 @@ $('#tx_issue_memo_value').focus();
 <% else %>
 hideModal();
 if (window.TxIssueMemoIndicator) {
-  window.TxIssueMemoIndicator.setMemo(<%= @issue.id %>, <%= raw(@issue.memo.to_s.to_json) %>);
+  window.TxIssueMemoIndicator.setMemo(<%= @issue.id %>, <%= raw(@memo_detail.to_json) %>);
 }
 $('#content > .flash').remove();
 $('#content').prepend('<%= escape_javascript(render_flash_messages) %>');

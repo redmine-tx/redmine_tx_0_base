@@ -97,15 +97,104 @@
     return { element: element, insertAfter: false };
   }
 
-  function buildIndicator(issueId, memo) {
+  function normalizeMemoEntry(entry) {
+    var normalized = {
+      value: '',
+      authorName: '',
+      updatedOn: ''
+    };
+
+    if (!entry) {
+      return normalized;
+    }
+
+    if (typeof entry === 'object') {
+      normalized.value = entry.value || entry.memo || '';
+      if (entry.author && entry.author.name) {
+        normalized.authorName = entry.author.name;
+      } else {
+        normalized.authorName = entry.author_name || entry.authorName || '';
+      }
+      normalized.updatedOn = entry.updated_on || entry.updatedOn || '';
+    } else {
+      normalized.value = entry;
+    }
+
+    normalized.value = normalized.value == null ? '' : String(normalized.value);
+    normalized.authorName = normalized.authorName == null ? '' : String(normalized.authorName);
+    normalized.updatedOn = normalized.updatedOn == null ? '' : String(normalized.updatedOn);
+    return normalized;
+  }
+
+  function normalizeMemoElement(target) {
+    return {
+      value: target.getAttribute('data-tx-memo') || '',
+      authorName: target.getAttribute('data-tx-memo-author-name') || '',
+      updatedOn: target.getAttribute('data-tx-memo-updated-on') || ''
+    };
+  }
+
+  function memoAriaLabel(memoData) {
+    var meta = memoMetaText(memoData);
+    if (meta) {
+      return meta + '\n' + memoData.value;
+    }
+
+    return memoData.value;
+  }
+
+  function formatMemoUpdatedOn(value) {
+    if (!value) {
+      return '';
+    }
+
+    var date = new Date(value);
+    if (isNaN(date.getTime())) {
+      return value;
+    }
+
+    function pad(number) {
+      return number < 10 ? '0' + number : String(number);
+    }
+
+    return date.getFullYear() + '-' +
+      pad(date.getMonth() + 1) + '-' +
+      pad(date.getDate()) + ' ' +
+      pad(date.getHours()) + ':' +
+      pad(date.getMinutes());
+  }
+
+  function memoMetaText(memoData) {
+    var parts = [];
+    var updatedOn = formatMemoUpdatedOn(memoData.updatedOn);
+
+    if (memoData.authorName) {
+      parts.push('작성자: ' + memoData.authorName);
+    }
+    if (updatedOn) {
+      parts.push('수정: ' + updatedOn);
+    }
+
+    return parts.join(' · ');
+  }
+
+  function setIndicatorMemoData(indicator, memoEntry) {
+    var memoData = normalizeMemoEntry(memoEntry);
+    indicator.setAttribute('data-tx-memo', memoData.value);
+    indicator.setAttribute('data-tx-memo-author-name', memoData.authorName);
+    indicator.setAttribute('data-tx-memo-updated-on', memoData.updatedOn);
+    indicator.setAttribute('aria-label', memoAriaLabel(memoData));
+    return memoData;
+  }
+
+  function buildIndicator(issueId, memoEntry) {
     var indicator = document.createElement('span');
     indicator.className = 'tx-issue-memo-indicator tx-issue-no-tooltip';
     indicator.setAttribute('data-issue-id', issueId);
-    indicator.setAttribute('data-tx-memo', memo);
-    indicator.setAttribute('aria-label', memo);
     indicator.setAttribute('role', 'note');
     indicator.setAttribute('tabindex', '0');
     indicator.textContent = '📝';
+    setIndicatorMemoData(indicator, memoEntry);
     return indicator;
   }
 
@@ -161,15 +250,29 @@
   }
 
   function showMemoTooltip(target) {
-    var memo = target.getAttribute('data-tx-memo') || '';
-    if (!memo) {
+    var memoData = normalizeMemoElement(target);
+    if (!memoData.value) {
       return;
     }
 
     hideIssueTooltip();
 
     var tooltip = memoTooltipElement();
-    tooltip.textContent = memo;
+    tooltip.textContent = '';
+
+    var body = document.createElement('div');
+    body.className = 'tx-memo-tooltip-body';
+    body.textContent = memoData.value;
+    tooltip.appendChild(body);
+
+    var metaText = memoMetaText(memoData);
+    if (metaText) {
+      var meta = document.createElement('div');
+      meta.className = 'tx-memo-tooltip-meta';
+      meta.textContent = metaText;
+      tooltip.appendChild(meta);
+    }
+
     tooltip.style.display = 'block';
     tooltip.style.visibility = 'hidden';
     positionMemoTooltip(target, tooltip);
@@ -187,11 +290,12 @@
     memoTooltip.setAttribute('aria-hidden', 'true');
   }
 
-  function upsertIndicator(element, issueId, memo) {
+  function upsertIndicator(element, issueId, memoEntry) {
     var selector = '.tx-issue-memo-indicator[data-issue-id="' + issueId + '"]';
     var indicator = element.querySelector(selector);
+    var memoData = normalizeMemoEntry(memoEntry);
 
-    if (!memo) {
+    if (!memoData.value) {
       if (indicator) {
         indicator.remove();
       }
@@ -200,7 +304,7 @@
 
     if (!indicator) {
       var host = findIndicatorHost(element);
-      indicator = buildIndicator(issueId, memo);
+      indicator = buildIndicator(issueId, memoData);
 
       if (host.insertAfter) {
         host.element.insertAdjacentElement('afterend', indicator);
@@ -208,8 +312,7 @@
         host.element.appendChild(indicator);
       }
     } else {
-      indicator.setAttribute('data-tx-memo', memo);
-      indicator.setAttribute('aria-label', memo);
+      setIndicatorMemoData(indicator, memoData);
     }
   }
 
@@ -278,7 +381,7 @@
       dataType: 'json',
       data: { ids: issueIds }
     }).done(function(response) {
-      memoCache = (response && response.issue_memos) || {};
+      memoCache = (response && (response.issue_memo_details || response.issue_memos)) || {};
       lastLoadedKey = issueKey;
       applyMemoMap(memoCache);
     }).fail(function(xhr) {
@@ -309,7 +412,8 @@
       }
 
       lastLoadedKey = currentIssueIds().join(',');
-      if (memo) {
+      var memoData = normalizeMemoEntry(memo);
+      if (memoData.value) {
         memoCache[String(normalizedId)] = memo;
       } else {
         delete memoCache[String(normalizedId)];
@@ -317,7 +421,7 @@
 
       findContextMenuIssues(document).each(function() {
         if (extractIssueId(this) === normalizedId) {
-          upsertIndicator(this, normalizedId, memo || '');
+          upsertIndicator(this, normalizedId, memoData);
         }
       });
     }

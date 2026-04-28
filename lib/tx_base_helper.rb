@@ -32,16 +32,54 @@ module TxBaseHelper
   end
 
   def self.issue_memos_for(issue_ids, user = User.current)
-    return {} unless issue_memo_custom_field
+    issue_memo_details_for(issue_ids, user).transform_values { |entry| entry[:value] }
+  end
+
+  def self.issue_memo_details_for(issue_ids, user = User.current)
+    field = issue_memo_custom_field
+    return {} unless field
 
     ids = Array(issue_ids).map(&:to_i).select(&:positive?).uniq
     return {} if ids.empty?
 
-    Issue.visible.where(id: ids)
-         .preload(:project, :tracker, custom_values: :custom_field)
-         .each_with_object({}) do |issue, memos|
+    issues = Issue.visible.where(id: ids)
+                  .preload(:project, :tracker, custom_values: :custom_field)
+                  .to_a
+    memo_journals = latest_issue_memo_journals(issues.map(&:id), field.id)
+
+    issues.each_with_object({}) do |issue, memos|
       memo = issue.memo(user)
-         memos[issue.id] = memo if memo.present?
+      next unless memo.present?
+
+      journal = memo_journals[issue.id]
+      memo_data = { value: memo.to_s }
+
+      if journal&.user
+        memo_data[:author] = {
+          id: journal.user.id,
+          name: journal.user.name
+        }
+      end
+      if journal&.created_on
+        memo_data[:created_on] = journal.created_on.iso8601
+        memo_data[:updated_on] = journal.created_on.iso8601
+      end
+
+      memos[issue.id] = memo_data
+    end
+  end
+
+  def self.latest_issue_memo_journals(issue_ids, custom_field_id)
+    return {} if issue_ids.blank?
+
+    JournalDetail.joins(:journal)
+                 .includes(journal: :user)
+                 .where(property: 'cf', prop_key: custom_field_id.to_s)
+                 .where(journals: { journalized_type: 'Issue', journalized_id: issue_ids })
+                 .order("#{Journal.table_name}.journalized_id ASC, #{Journal.table_name}.created_on DESC, #{Journal.table_name}.id DESC")
+                 .each_with_object({}) do |detail, journals|
+      journal = detail.journal
+      journals[journal.journalized_id] ||= journal if journal
     end
   end
 

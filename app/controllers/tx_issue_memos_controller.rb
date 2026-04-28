@@ -5,7 +5,11 @@ class TxIssueMemosController < ApplicationController
   before_action :find_memo_custom_field, only: [:edit, :update]
 
   def index
-    render json: { issue_memos: TxBaseHelper.issue_memos_for(requested_issue_ids, User.current) }
+    memo_details = TxBaseHelper.issue_memo_details_for(requested_issue_ids, User.current)
+    render json: {
+      issue_memos: memo_details.transform_values { |entry| entry[:value] },
+      issue_memo_details: memo_details
+    }
   end
 
   def edit
@@ -17,6 +21,7 @@ class TxIssueMemosController < ApplicationController
 
   def update
     if @issue.update_memo!(memo_value, user: User.current)
+      @memo_detail = TxBaseHelper.issue_memo_details_for([@issue.id], User.current)[@issue.id] || { value: @issue.memo.to_s }
       flash.now[:notice] = l(:notice_tx_issue_memo_updated)
       respond_to do |format|
         format.html { redirect_to issue_path(@issue), notice: l(:notice_tx_issue_memo_updated) }
