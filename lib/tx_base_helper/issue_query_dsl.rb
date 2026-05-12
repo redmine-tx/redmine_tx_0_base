@@ -65,12 +65,17 @@ module TxBaseHelper
     #   - :association [Symbol] belongs_to 연관명 (기본: name)
     #   - :foreign_key [String, Symbol] issues 테이블의 사용자 FK (기본: "#{association}_id")
     #   - :join_alias [String, Symbol] 정렬용 users 테이블 alias (기본: association)
+    #   - :filter_name [String, Symbol] 필터명 (기본: "#{name}_id")
     #   - :filter [Boolean] 필터 추가 여부 (기본: true)
     def user_column(name, options = {})
       association = options.delete(:association) || name
-      foreign_key = options.delete(:foreign_key) || "#{association}_id"
-      join_alias = options.delete(:join_alias) || association
+      foreign_key = (options.delete(:foreign_key) || "#{association}_id").to_s
+      join_alias = (options.delete(:join_alias) || association).to_s
+      filter_name = (options.delete(:filter_name) || "#{name}_id").to_s
       add_filter = options.delete(:filter) != false
+      validate_sql_identifier!(:foreign_key, foreign_key)
+      validate_sql_identifier!(:join_alias, join_alias)
+      validate_unique_user_join_alias!(join_alias, foreign_key)
 
       @columns << {
         name: name,
@@ -83,7 +88,7 @@ module TxBaseHelper
 
       if add_filter
         @filters << {
-          name: "#{name}_id",
+          name: filter_name,
           type: :list_optional,
           user_filter: true,
           association: association
@@ -106,6 +111,21 @@ module TxBaseHelper
 
     private
 
+    def validate_sql_identifier!(option_name, value)
+      return if value.match?(/\A[a-zA-Z_][a-zA-Z0-9_]*\z/)
+
+      raise ArgumentError, "#{option_name} must be a simple SQL identifier"
+    end
+
+    def validate_unique_user_join_alias!(join_alias, foreign_key)
+      existing = @columns.find do |col|
+        col[:type] == :user && col[:join_alias] == join_alias
+      end
+      return if existing.nil? || existing[:foreign_key] == foreign_key
+
+      raise ArgumentError, "join_alias #{join_alias.inspect} is already used with a different foreign_key"
+    end
+
     def create_patch_module
       columns = @columns
       filters = @filters
@@ -123,7 +143,7 @@ module TxBaseHelper
 
             user_joins.each do |join_def|
               join_alias = join_def[:join_alias]
-              next unless order_sql.include?("#{join_alias}.")
+              next unless order_sql.match?(/(?:^|[^\w])`?#{Regexp.escape(join_alias)}`?\./)
 
               foreign_key = join_def[:foreign_key]
               joins <<
@@ -252,7 +272,7 @@ module TxBaseHelper
               column_options = {
                 :caption => col[:options][:caption] || "field_#{col[:name]}".to_sym,
                 :sortable => sortable,
-                :groupable => col[:options].key?(:groupable) ? col[:options][:groupable] : true
+                :groupable => col[:options].key?(:groupable) ? col[:options][:groupable] : sortable.present?
               }.merge(col[:options].except(:caption, :sortable, :groupable))
 
               add_available_column QueryColumn.new(association, column_options)

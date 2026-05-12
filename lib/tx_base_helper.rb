@@ -387,7 +387,7 @@ module TxBaseHelper
     end
 
     # 특정 시점에 작업이 시작되었는지 확인
-    # 조건: done_ratio > 0 또는 상태가 '진행중' 이상
+    # 조건: done_ratio > 0 또는 상태가 구현 진행/완료 단계
     def work_started_at?(target_time)
       return true if done_ratio_at(target_time) > 0
 
@@ -395,7 +395,6 @@ module TxBaseHelper
       target_status_id = status_at(target_time)
       if IssueStatus.respond_to?(:is_in_progress?)
         IssueStatus.is_in_progress?(target_status_id) ||
-          IssueStatus.is_in_review?(target_status_id) ||
           IssueStatus.is_implemented?(target_status_id) ||
           IssueStatus.is_qa?(target_status_id) ||
           IssueStatus.is_completed?(target_status_id)
