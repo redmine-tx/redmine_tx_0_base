@@ -10,7 +10,12 @@ Redmine::Plugin.register :redmine_tx_0_base do
     'empty' => true,
     'show_top_projects' => '1',  # 상단 메뉴바 프로젝트 바로가기 (기본: 켜짐)
     'project_context_menu' => '',  # 프로젝트 컨텍스트 메뉴 항목
-    'issue_memo_custom_field_id' => ''  # 컨텍스트 메뉴 빠른 메모 대상 커스텀필드
+    'issue_memo_custom_field_id' => '',  # 컨텍스트 메뉴 빠른 메모 대상 커스텀필드
+    'organization_team_settings_enabled' => '0',
+    'organization_display_group_ids' => [],
+    'organization_excluded_group_ids' => [],
+    'organization_excluded_user_ids_by_group' => {},
+    'organization_groupings' => []
   }, partial: 'settings/tx_base'
 
   menu :top_menu, :issues, 
@@ -27,6 +32,7 @@ Rails.application.config.after_initialize do
   require_dependency File.expand_path('../lib/tx_base_helper/holiday_api', __FILE__)
   require_dependency File.expand_path('../lib/tx_base_helper/user_vacation_api', __FILE__)
   require_dependency File.expand_path('../lib/tx_base_helper/status_merger', __FILE__)
+  require_dependency File.expand_path('../lib/tx_base_helper/team_settings', __FILE__)
   require_dependency File.expand_path('../lib/tx_base_helper/issues_helper_patch', __FILE__)
 
   TxBaseHelper.register_issue_query_columns do

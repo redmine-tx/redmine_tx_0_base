@@ -9,11 +9,53 @@
     - page_size: 한 페이지당 표시할 일감 수 (기본값: 15)
     - columns: 표시할 컬럼 배열 (기본값: [:id, :tracker, :priority, :assigned_to, :subject, :status, :fixed_version, :done_ratio, :updated_on, :due_date, :tip])
     - list_id: 테이블 ID (기본값: 'shared-issues-list', 같은 페이지에 여러 리스트 사용 시 고유하게 설정)
+    - column_labels: { column => label } 형태의 커스텀 컬럼 라벨 (선택)
+    - column_values: { issue_id => { column => value } } 형태의 커스텀 셀 값 (선택)
+    - column_sort_values: { issue_id => { column => value } } 형태의 커스텀 정렬 값 (선택)
+    - form_url: 체크박스/context menu form action URL (기본값: 현재 URL)
+    - back_url: 체크박스/context menu back_url 값 (기본값: 현재 URL + query)
 %>
 <%
   list_id ||= 'shared-issues-list'
   columns ||= [:id, :tracker, :priority, :assigned_to, :subject, :status, :fixed_version, :done_ratio, :updated_on, :due_date, :tip]
   page_size ||= 15
+  column_labels ||= {}
+  column_values ||= {}
+  column_sort_values ||= {}
+  form_url ||= {}
+  back_url ||= nil
+
+  lookup_column_value = lambda do |source, issue, column|
+    issue_values = source[issue.id] || source[issue.id.to_s]
+    next [false, nil] unless issue_values.is_a?(Hash)
+
+    if issue_values.key?(column)
+      [true, issue_values[column]]
+    elsif issue_values.key?(column.to_s)
+      [true, issue_values[column.to_s]]
+    elsif issue_values.key?(column.to_sym)
+      [true, issue_values[column.to_sym]]
+    else
+      [false, nil]
+    end
+  end
+
+  column_label = lambda do |column|
+    column_labels[column] || column_labels[column.to_s] || column_labels[column.to_sym] || l("field_#{column}")
+  end
+
+  column_value = lambda do |issue, column|
+    found, value = lookup_column_value.call(column_values, issue, column)
+    found ? value : get_column_value(issue, column)
+  end
+
+  column_sort_value = lambda do |issue, column|
+    found, value = lookup_column_value.call(column_sort_values, issue, column)
+    return value if found
+
+    found, value = lookup_column_value.call(column_values, issue, column)
+    found ? value : get_column_sort_value(issue, column)
+  end
   
   # 헬퍼 모듈 인클루드
   extend TxBaseHelper
@@ -21,8 +63,8 @@
 
 <div id="<%= list_id %>-container">
   <% if issues.any? %>
-  <%= form_tag({}, :data => {:cm_url => issues_context_menu_path}) do -%>
-  <%= hidden_field_tag 'back_url', url_for(:params => request.query_parameters), :id => nil %>
+  <%= form_tag(form_url, :data => {:cm_url => issues_context_menu_path}) do -%>
+  <%= hidden_field_tag 'back_url', back_url || url_for(:params => request.query_parameters), :id => nil %>
   <style>
   /* Wrap long text to prevent horizontal scrolling */
   #<%= list_id %>-table { table-layout: auto; width: 100%; }
@@ -40,7 +82,7 @@
       <tr>
         <th class="checkbox hide-when-print"><%= check_box_tag 'check_all', '', false, :class => 'toggle-selection', :title => "#{l(:button_check_all)} / #{l(:button_uncheck_all)}" %></th>
         <% columns.each do |column| %>
-          <th><a href="javascript:void(0)" data-sort-dir="desc"><%= l("field_#{column}") %></a></th>
+          <th><a href="javascript:void(0)" data-sort-dir="desc"><%= column_label.call(column) %></a></th>
         <% end %>
       </tr>
     </thead>
@@ -57,7 +99,7 @@
       %>" id="issue-<%= issue.id %>">
         <td class="checkbox hide-when-print"><%= check_box_tag 'ids[]', issue.id, false, :id => nil %></td>
         <% columns.each do |column| %>
-          <td data-sort="<%= get_column_sort_value(issue, column) %>" class="<%= column.to_s %>"><%= get_column_value(issue, column) %></td>
+          <td data-sort="<%= column_sort_value.call(issue, column) %>" class="<%= column.to_s %>"><%= column_value.call(issue, column) %></td>
         <% end %>
       </tr>
       <% end %>
@@ -236,5 +278,3 @@
   });
 })();
 </script>
-
-

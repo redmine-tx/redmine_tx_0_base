@@ -1,20 +1,43 @@
-<div class="container">
+<div class="tx-base-settings">
   <% tx_issue_memo_fields = TxBaseHelper.issue_memo_custom_fields.map do |field|
        ["#{field.name} (##{field.id}, #{field.field_format})", field.id.to_s]
-     end %>
+     end
+     tx_base_settings = Setting[:plugin_redmine_tx_0_base] || {}
+     tx_team_settings = TxBaseHelper::TeamSettings.new(tx_base_settings)
+     tx_groups = Group.all.order(:name).to_a
+     tx_groupings = tx_team_settings.groupings.map do |grouping|
+       {
+         'name' => grouping[:name],
+         'group_ids' => grouping[:group_ids].map(&:to_s)
+       }
+     end
+     tx_groupings = [{}] if tx_groupings.empty?
+     tx_next_grouping_index = tx_groupings.length
+  %>
+
+  <div class="tx-base-tabs">
+    <input type="radio" name="tx_base_settings_tab" id="tx-base-tab-basic" checked>
+    <input type="radio" name="tx_base_settings_tab" id="tx-base-tab-org">
+
+    <div class="tx-base-tab-labels">
+      <label for="tx-base-tab-basic">기본 설정</label>
+      <label for="tx-base-tab-org">조직/팀 설정</label>
+    </div>
+
+    <div class="tx-base-tab-panel tx-base-basic-panel">
   
   <!-- 상단 메뉴 설정 -->
-  <div class="section">
-    <h3 class="title">상단 메뉴 설정</h3>
-    <div class="grid">
-      <div class="item">
+  <div class="tx-base-section">
+    <h3 class="tx-base-title">상단 메뉴 설정</h3>
+    <div class="tx-base-grid">
+      <div class="tx-base-item">
         <h3>프로젝트 바로가기</h3>
         <div class="checkbox-wrapper">
           <%= check_box_tag 'settings[show_top_projects]', '1', Setting[:plugin_redmine_tx_0_base][:show_top_projects] == '1' %>
           <span>상단 메뉴바에 프로젝트 바로가기 표시 (일감 수 순 정렬)</span>
         </div>
       </div>
-      <div class="item">
+      <div class="tx-base-item">
         <h3>프로젝트 컨텍스트 메뉴</h3>
         <p class="hint" style="color: #888; font-size: 0.85em; margin-bottom: 8px;">
           프로젝트 링크에 마우스를 올리면 표시될 메뉴 항목입니다.<br>
@@ -26,9 +49,9 @@
             style: 'width: 100%; font-family: monospace; font-size: 12px;',
             placeholder: "이슈 : /issues\n버그현황 : /milestone/report/bugs" %>
       </div>
-      <div class="item">
+      <div class="tx-base-item">
         <h3><%= l(:label_tx_issue_memo_custom_field) %></h3>
-        <div class="select-wrapper">
+        <div class="tx-base-select-wrapper">
           <%= select_tag 'settings[issue_memo_custom_field_id]',
               options_for_select([[l(:label_none), '']] + tx_issue_memo_fields,
                                  Setting[:plugin_redmine_tx_0_base][:issue_memo_custom_field_id].to_s) %>
@@ -41,10 +64,10 @@
   </div>
 
   <!-- 제외 설정 그룹 -->
-  <div class="section">
-    <h3 class="title">보고 제외 설정</h3>
-    <div class="grid">
-      <div class="item">
+  <div class="tx-base-section">
+    <h3 class="tx-base-title">보고 제외 설정</h3>
+    <div class="tx-base-grid">
+      <div class="tx-base-item">
         <h3>이슈 팁 제외 설정</h3>
         <div class="checkbox-wrapper">
           <%= check_box_tag 'settings[no_tip_for_bugs]', '1', Setting[:plugin_redmine_tx_0_base][:no_tip_for_bugs] == '1' %>
@@ -52,18 +75,18 @@
         </div>
       </div>
       
-      <div class="item">
+      <div class="tx-base-item">
         <h3>그룹별 보고에서 제외할 그룹</h3>
-        <div class="select-wrapper">
+        <div class="tx-base-select-wrapper">
           <%= select_tag('settings_redmine_tx_0_base_e_group', 
               options_for_select(Group.all.order(:name).map { |t| [ t.name, t.id ] }, 
               selected: Setting[:plugin_redmine_tx_0_base][:e_group].to_s.tr('[]" ','').split(',')), 
               name: 'settings[e_group][]', multiple: true ) %>
         </div>
       </div>
-      <div class="item">
+      <div class="tx-base-item">
         <h3>보고에서 제외할 사용자</h3>
-        <div class="select-wrapper">
+        <div class="tx-base-select-wrapper">
           <%= select_tag('settings_redmine_tx_0_base_e_user', 
               options_for_select(User.where("status != 3").order(:lastname, :firstname).map { |t| [ t.name, t.id ] }, 
               selected: Setting[:plugin_redmine_tx_0_base][:e_user].to_s.tr('[]" ','').split(',')), 
@@ -74,12 +97,12 @@
   </div>
 
   <!-- PM팀 설정 그룹 -->
-  <div class="section">
-    <h3 class="title">관리자 설정</h3>
-    <div class="grid">
-      <div class="item">
+  <div class="tx-base-section">
+    <h3 class="tx-base-title">관리자 설정</h3>
+    <div class="tx-base-grid">
+      <div class="tx-base-item">
         <h3>PM팀</h3>
-        <div class="select-wrapper">
+        <div class="tx-base-select-wrapper">
           <%= select_tag('settings_redmine_tx_0_base_pm_group', 
             options_for_select(Group.all.order(:name).map { |t| [ t.name, t.id ] }, 
               selected: Setting[:plugin_redmine_tx_0_base][:pm_group].to_s.tr('[]" ','').split(',')), 
@@ -87,9 +110,9 @@
         </div>
       </div>
 
-      <div class="item">
+      <div class="tx-base-item">
         <h3>매니저</h3>
-        <div class="select-wrapper">
+        <div class="tx-base-select-wrapper">
           <%= select_tag('settings_redmine_tx_0_base_manager_roles', 
             options_for_select(Role.all.order(:name).map { |t| [ t.name, t.id ] }, 
               selected: Setting[:plugin_redmine_tx_0_base][:manager_roles].to_s.tr('[]" ','').split(',')), 
@@ -97,7 +120,7 @@
         </div>
       </div>
 
-      <div class="item">
+      <div class="tx-base-item">
         <h3>마이페이지 설정</h3>
         <div class="checkbox-wrapper">
           <%= check_box_tag 'settings[force_top]', '1', Setting[:plugin_redmine_tx_0_base][:force_top] == '1' %>
@@ -115,13 +138,13 @@
     #managers = []
   %>
 
-    <div class="section">
-      <h3 class="title">매니저별 담당팀 설정</h3>
-      <div class="grid">
+    <div class="tx-base-section">
+      <h3 class="tx-base-title">매니저별 담당팀 설정</h3>
+      <div class="tx-base-grid">
         <% managers.each do |manager| %>
-          <div class="item">
+          <div class="tx-base-item">
             <h3><%=manager.name%></h3>
-            <div class="select-wrapper">
+            <div class="tx-base-select-wrapper">
               <%= select_tag("settings_redmine_tx_0_base_manager_#{manager.id}", 
                 options_for_select(Group.all.order(:name).map { |t| [ t.name, t.id ] }, 
                   selected: Setting[:plugin_redmine_tx_0_base]["manager_#{manager.id}".to_sym].to_s.tr('[]" ','').split(',')), 
@@ -132,25 +155,341 @@
       </div>
     </div>
   <% end %>
+
+    </div>
+
+    <div class="tx-base-tab-panel tx-base-org-panel">
+      <div class="tx-base-section">
+        <h3 class="tx-base-title">공용 조직/팀 설정</h3>
+        <p class="hint" style="color: #666; font-size: 0.9em; margin-bottom: 14px;">
+          리포트와 플러그인에서 공통으로 사용할 팀과 실제 집계 인원을 정의합니다.
+          관리 목적으로 그룹에 포함된 비소속 인원은 팀별 제외 인원에서 제외할 수 있습니다.
+        </p>
+        <%= hidden_field_tag 'settings[organization_team_settings_enabled]', '1' %>
+
+        <div class="tx-base-grid">
+          <div class="tx-base-item">
+            <h3>팀 집계 제외 그룹</h3>
+            <p class="hint" style="color: #888; font-size: 0.85em; margin-bottom: 8px;">
+              관리용/임시 그룹처럼 리포트에서 팀으로 보지 않을 Redmine 그룹을 선택합니다.
+              선택하지 않은 그룹은 기본적으로 팀으로 취급됩니다.
+            </p>
+            <div class="tx-base-select-wrapper">
+              <%= hidden_field_tag 'settings[organization_excluded_group_ids][]', '' %>
+              <%= select_tag 'settings[organization_excluded_group_ids][]',
+                  options_from_collection_for_select(tx_groups, :id, :name, tx_team_settings.excluded_group_ids),
+                  :multiple => true,
+                  :size => [tx_groups.length, 14].min,
+                  :'data-tx-base-excluded-groups' => true %>
+            </div>
+          </div>
+
+          <div class="tx-base-item">
+            <h3>집계 대상 팀 미리보기</h3>
+            <p class="hint" style="color: #888; font-size: 0.85em; margin-bottom: 8px;">
+              왼쪽 제외 그룹을 뺀 뒤 실제 리포트와 히트맵에 표시될 팀입니다.
+            </p>
+            <div class="tx-base-team-preview" data-tx-base-valid-team-preview>
+              <% tx_team_settings.display_groups.each do |group| %>
+                <span data-group-id="<%= group.id %>"><%= group.name %></span>
+              <% end %>
+            </div>
+          </div>
+
+          <div class="tx-base-item">
+            <h3>실 그룹핑</h3>
+            <p class="hint" style="color: #888; font-size: 0.85em; margin-bottom: 8px;">
+              예: 기획실, 프로그램실. 같은 실에 속하는 팀을 여러 개 선택합니다.
+            </p>
+            <table class="list tx-base-team-groupings">
+              <thead>
+                <tr>
+                  <th>실 이름</th>
+                  <th>소속 팀</th>
+                  <th class="tx-base-grouping-actions"></th>
+                </tr>
+              </thead>
+              <tbody data-tx-base-groupings-body>
+                <% tx_groupings.each_with_index do |grouping, index| %>
+                  <% grouping = grouping.is_a?(Hash) ? grouping : {} %>
+                  <tr>
+                    <td>
+                      <%= text_field_tag "settings[organization_groupings][#{index}][name]",
+                                         grouping['name'],
+                                         :placeholder => '기획실',
+                                         :style => 'width: 12em;' %>
+                    </td>
+                    <td>
+                      <%= hidden_field_tag "settings[organization_groupings][#{index}][group_ids][]", '' %>
+                      <%= select_tag "settings[organization_groupings][#{index}][group_ids][]",
+                                     options_from_collection_for_select(tx_groups, :id, :name, Array(grouping['group_ids']).map(&:to_s)),
+                                     :multiple => true,
+                                     :size => 5 %>
+                    </td>
+                    <td class="tx-base-grouping-actions">
+                      <button type="button" class="tx-base-remove-grouping">삭제</button>
+                    </td>
+                  </tr>
+                <% end %>
+              </tbody>
+            </table>
+            <button type="button"
+                    class="tx-base-add-grouping"
+                    data-next-index="<%= tx_next_grouping_index %>">+ 실 추가</button>
+
+            <template id="tx-base-grouping-template">
+              <tr>
+                <td>
+                  <%= text_field_tag "settings[organization_groupings][__INDEX__][name]",
+                                     nil,
+                                     :placeholder => '기획실',
+                                     :style => 'width: 12em;' %>
+                </td>
+                <td>
+                  <%= hidden_field_tag "settings[organization_groupings][__INDEX__][group_ids][]", '' %>
+                  <%= select_tag "settings[organization_groupings][__INDEX__][group_ids][]",
+                                 options_from_collection_for_select(tx_groups, :id, :name, []),
+                                 :multiple => true,
+                                 :size => 5 %>
+                </td>
+                <td class="tx-base-grouping-actions">
+                  <button type="button" class="tx-base-remove-grouping">삭제</button>
+                </td>
+              </tr>
+            </template>
+          </div>
+        </div>
+      </div>
+
+      <div class="tx-base-section">
+        <h3 class="tx-base-title">팀별 제외 인원</h3>
+        <p class="hint" style="color: #666; font-size: 0.9em; margin-bottom: 14px;">
+          팀 그룹에는 들어 있지만 집계/용량 산정에서 제외할 인원을 팀별로 지정합니다.
+        </p>
+        <div class="tx-base-grid">
+          <% tx_groups.each do |group| %>
+            <% users = group.users.active.to_a.sort_by(&:name) %>
+            <% next if users.empty? %>
+            <div class="tx-base-item">
+              <h3><%= group.name %></h3>
+              <div class="tx-base-select-wrapper">
+                <%= hidden_field_tag "settings[organization_excluded_user_ids_by_group][#{group.id}][]", '' %>
+                <%= select_tag "settings[organization_excluded_user_ids_by_group][#{group.id}][]",
+                               options_from_collection_for_select(users, :id, :name, tx_team_settings.excluded_user_ids(group.id)),
+                               :multiple => true,
+                               :size => [users.length, 8].min %>
+              </div>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
+<script>
+(function() {
+  function initTeamGroupingRows() {
+    var root = document.querySelector('#settings.plugin-redmine_tx_0_base .tx-base-settings');
+    if (!root) return;
+
+    var tbody = root.querySelector('[data-tx-base-groupings-body]');
+    var addButton = root.querySelector('.tx-base-add-grouping');
+    var template = root.querySelector('#tx-base-grouping-template');
+    if (!tbody || !addButton || !template) return;
+
+    function nextIndex() {
+      var index = Number(addButton.getAttribute('data-next-index') || 0);
+      addButton.setAttribute('data-next-index', String(index + 1));
+      return index;
+    }
+
+    function updateRemoveButtons() {
+      var buttons = tbody.querySelectorAll('.tx-base-remove-grouping');
+      buttons.forEach(function(button) {
+        button.disabled = buttons.length <= 1;
+      });
+    }
+
+    addButton.addEventListener('click', function() {
+      var html = template.innerHTML.replace(/__INDEX__/g, String(nextIndex()));
+      tbody.insertAdjacentHTML('beforeend', html);
+      updateRemoveButtons();
+    });
+
+    tbody.addEventListener('click', function(event) {
+      var button = event.target.closest && event.target.closest('.tx-base-remove-grouping');
+      if (!button || button.disabled) return;
+
+      var row = button.closest('tr');
+      if (row) row.remove();
+      updateRemoveButtons();
+    });
+
+    updateRemoveButtons();
+  }
+
+  function initTeamPreview() {
+    var root = document.querySelector('#settings.plugin-redmine_tx_0_base .tx-base-settings');
+    if (!root) return;
+
+    var excludedSelect = root.querySelector('[data-tx-base-excluded-groups]');
+    var preview = root.querySelector('[data-tx-base-valid-team-preview]');
+    if (!excludedSelect || !preview) return;
+
+    function renderPreview() {
+      var selected = {};
+      Array.prototype.forEach.call(excludedSelect.selectedOptions, function(option) {
+        selected[String(option.value)] = true;
+      });
+
+      preview.innerHTML = '';
+      Array.prototype.forEach.call(excludedSelect.options, function(option) {
+        if (!option.value || selected[String(option.value)]) return;
+
+        var badge = document.createElement('span');
+        badge.setAttribute('data-group-id', option.value);
+        badge.textContent = option.text;
+        preview.appendChild(badge);
+      });
+
+      if (!preview.children.length) {
+        var empty = document.createElement('em');
+        empty.textContent = '집계 대상 팀이 없습니다.';
+        preview.appendChild(empty);
+      }
+    }
+
+    excludedSelect.addEventListener('change', renderPreview);
+    renderPreview();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() {
+      initTeamGroupingRows();
+      initTeamPreview();
+    });
+  } else {
+    initTeamGroupingRows();
+    initTeamPreview();
+  }
+})();
+</script>
+
 <style>
-.container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 20px;
+#settings.plugin-redmine_tx_0_base .tx-base-settings p {
+  clear: none !important;
+  font-size: inherit !important;
+  min-height: 0 !important;
+  overflow: visible !important;
+  padding-left: 0 !important;
+}
+
+#settings.plugin-redmine_tx_0_base .tx-base-settings label {
+  float: none !important;
+  line-height: normal !important;
+  margin-left: 0 !important;
+  text-align: left !important;
+  width: auto !important;
+}
+
+#settings.plugin-redmine_tx_0_base .tx-base-settings input,
+#settings.plugin-redmine_tx_0_base .tx-base-settings select,
+#settings.plugin-redmine_tx_0_base .tx-base-settings textarea {
+  max-width: 100% !important;
+}
+
+.tx-base-settings {
+  width: 100%;
   box-sizing: border-box;
 }
 
-.section {
+.tx-base-settings .tx-base-section {
   background: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  padding: 20px;
-  margin-bottom: 24px;
+  border: 1px solid #e4e4e4;
+  padding: 12px;
+  margin-bottom: 16px;
 }
 
-.title {
+.tx-base-tabs > input[type="radio"] {
+  display: none;
+}
+
+.tx-base-tab-labels {
+  border-bottom: 1px solid #d7d7d7;
+  display: flex;
+  gap: 4px;
+  margin-bottom: 18px;
+}
+
+.tx-base-tab-labels label {
+  background: #f3f5f7;
+  border: 1px solid #d7d7d7;
+  border-bottom: 0;
+  border-radius: 4px 4px 0 0;
+  cursor: pointer;
+  font-weight: 600;
+  padding: 8px 14px;
+}
+
+.tx-base-tab-panel {
+  display: none;
+}
+
+#tx-base-tab-basic:checked ~ .tx-base-tab-labels label[for="tx-base-tab-basic"],
+#tx-base-tab-org:checked ~ .tx-base-tab-labels label[for="tx-base-tab-org"] {
+  background: #fff;
+  color: #2a73b8;
+}
+
+#tx-base-tab-basic:checked ~ .tx-base-basic-panel,
+#tx-base-tab-org:checked ~ .tx-base-org-panel {
+  display: block;
+}
+
+.tx-base-team-groupings {
+  width: 100%;
+}
+
+.tx-base-team-groupings select {
+  min-width: 260px;
+  width: 100%;
+}
+
+.tx-base-grouping-actions {
+  text-align: center;
+  width: 72px;
+}
+
+.tx-base-add-grouping {
+  margin-top: 8px;
+}
+
+.tx-base-team-preview {
+  align-content: start;
+  border: 1px solid #ddd;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 120px;
+  padding: 8px;
+}
+
+.tx-base-team-preview span {
+  background: #edf4fb;
+  border: 1px solid #c9dceb;
+  border-radius: 3px;
+  color: #24445f;
+  display: inline-block;
+  line-height: 1.4;
+  padding: 2px 6px;
+}
+
+.tx-base-team-preview em {
+  color: #777;
+}
+
+.tx-base-settings .tx-base-title {
   color: #2c3e50;
   font-size: 1.2em;
   margin-bottom: 20px;
@@ -158,14 +497,14 @@
   border-bottom: 2px solid #eee;
 }
 
-.grid {
+.tx-base-settings .tx-base-grid {
   display: flex;
   flex-direction: column;
   gap: 20px;
   width: 100%;
 }
 
-.item {
+.tx-base-settings .tx-base-item {
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -174,7 +513,7 @@
   box-sizing: border-box;
 }
 
-.item h3 {
+.tx-base-settings .tx-base-item h3 {
   font-weight: 600;
   color: #555;
   font-size: 0.9em;
@@ -184,21 +523,25 @@
   margin-bottom: 4px;
 }
 
-.select-wrapper {
+.tx-base-settings .tx-base-select-wrapper {
   width: 100%;
 }
 
-.select {
+.tx-base-settings select {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.tx-base-settings select[multiple] {
   width: 100%;
   padding: 8px;
   border: 1px solid #ddd;
   border-radius: 4px;
   background-color: #f8f9fa;
   min-height: 120px;
-  box-sizing: border-box;
 }
 
-.select:focus {
+.tx-base-settings select:focus {
   border-color: #3498db;
   outline: none;
   box-shadow: 0 0 0 2px rgba(52,152,219,0.2);
@@ -206,13 +549,13 @@
 
 /* 화면이 넓을 때는 2열 또는 3열로 표시 */
 @media (min-width: 768px) {
-  .grid {
+  .tx-base-settings .tx-base-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
     gap: 20px;
   }
   
-  .item {
+  .tx-base-settings .tx-base-item {
     min-width: 0;
   }
 }

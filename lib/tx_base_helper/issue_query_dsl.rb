@@ -63,15 +63,21 @@ module TxBaseHelper
     # @param name [Symbol] 컬럼명 (예: :end_date_delayed_by)
     # @param options [Hash] 옵션
     #   - :association [Symbol] belongs_to 연관명 (기본: name)
+    #   - :foreign_key [String, Symbol] issues 테이블의 사용자 FK (기본: "#{association}_id")
+    #   - :join_alias [String, Symbol] 정렬용 users 테이블 alias (기본: association)
     #   - :filter [Boolean] 필터 추가 여부 (기본: true)
     def user_column(name, options = {})
       association = options.delete(:association) || name
+      foreign_key = options.delete(:foreign_key) || "#{association}_id"
+      join_alias = options.delete(:join_alias) || association
       add_filter = options.delete(:filter) != false
 
       @columns << {
         name: name,
         type: :user,
         association: association,
+        foreign_key: foreign_key,
+        join_alias: join_alias.to_s,
         options: options
       }
 
@@ -104,9 +110,31 @@ module TxBaseHelper
       columns = @columns
       filters = @filters
       virtual_columns = @virtual_columns
+      user_joins = columns.select { |col| col[:type] == :user }
       unique_suffix = "tx_dsl_#{object_id}"
 
       patch_module = Module.new
+
+      if user_joins.any?
+        patch_module.module_eval do
+          define_method(:"joins_for_order_statement_with_#{unique_suffix}") do |order_options|
+            joins = [send(:"joins_for_order_statement_without_#{unique_suffix}", order_options)]
+            order_sql = order_options.to_s
+
+            user_joins.each do |join_def|
+              join_alias = join_def[:join_alias]
+              next unless order_sql.include?("#{join_alias}.")
+
+              foreign_key = join_def[:foreign_key]
+              joins <<
+                "LEFT OUTER JOIN #{User.table_name} #{join_alias}" \
+                  " ON #{join_alias}.id = #{queried_table_name}.#{foreign_key}"
+            end
+
+            joins.compact_blank.uniq.join(' ').presence
+          end
+        end
+      end
 
       # 필터 초기화 메소드 정의 (먼저 정의해야 alias_method가 작동함)
       if filters.any?
@@ -214,12 +242,20 @@ module TxBaseHelper
               # User 타입 컬럼은 일반 QueryColumn 사용 (belongs_to 관계가 User 객체 반환)
               # Redmine이 자동으로 User 객체에 link_to_user 적용
               association = col[:association]
-              add_available_column QueryColumn.new(
-                association,
+              join_alias = col[:join_alias]
+              sortable =
+                if col[:options].key?(:sortable)
+                  col[:options][:sortable]
+                else
+                  Proc.new { User.fields_for_order_statement(join_alias) }
+                end
+              column_options = {
                 :caption => col[:options][:caption] || "field_#{col[:name]}".to_sym,
-                :sortable => col[:options][:sortable] || Proc.new { User.fields_for_order_statement(association) },
+                :sortable => sortable,
                 :groupable => col[:options].key?(:groupable) ? col[:options][:groupable] : true
-              )
+              }.merge(col[:options].except(:caption, :sortable, :groupable))
+
+              add_available_column QueryColumn.new(association, column_options)
             else
               add_issue_column col[:name], col[:options]
             end
@@ -229,6 +265,11 @@ module TxBaseHelper
           virtual_columns.each do |vcol|
             next if available_columns.any? { |c| c.name == vcol[:name] }
             add_issue_virtual_column vcol[:name], vcol[:options].merge(value_proc: vcol[:value_proc])
+          end
+
+          if user_joins.any?
+            alias_method :"joins_for_order_statement_without_#{unique_suffix}", :joins_for_order_statement
+            alias_method :joins_for_order_statement, :"joins_for_order_statement_with_#{unique_suffix}"
           end
 
           # 필터가 있으면 alias_method 체인 설정
