@@ -162,6 +162,18 @@ module TxBaseHelper
           define_method(:"initialize_available_filters_with_#{unique_suffix}") do
             send(:"initialize_available_filters_without_#{unique_suffix}")
 
+            normalize_filter_options = lambda do |options|
+              normalized = options.dup
+              values_proc = normalized[:values]
+
+              if values_proc.is_a?(Proc)
+                query = self
+                normalized[:values] = lambda { query.instance_exec(&values_proc) }
+              end
+
+              normalized
+            end
+
             filters.each do |filter_def|
               filter_name = filter_def[:name].to_s
               filter_type = filter_def[:type]
@@ -176,12 +188,12 @@ module TxBaseHelper
                 }
               elsif filter_def[:virtual]
                 # 가상 컬럼 필터
-                filter_opts = filter_def[:filter_options].dup
+                filter_opts = normalize_filter_options.call(filter_def[:filter_options])
                 filter_opts[:type] = filter_type if filter_type
                 add_issue_filter filter_name, filter_opts
               else
                 # 일반 필터
-                filter_opts = filter_def.except(:name, :type)
+                filter_opts = normalize_filter_options.call(filter_def.except(:name, :type))
                 filter_opts[:type] = filter_type if filter_type
                 add_issue_filter filter_name, filter_opts
               end
