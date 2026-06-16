@@ -171,6 +171,16 @@
   border-left: 2px solid #808080;
 }
 
+.tx-schedule-cell.tx-empty-cell-merged:not(.tx-schedule-bar) {
+  background-image: repeating-linear-gradient(
+    to right,
+    transparent 0,
+    transparent 21px,
+    #d0d0d0 21px,
+    #d0d0d0 22px
+  );
+}
+
 /* 주말 및 공휴일 배경색 (일정이 없는 셀에만 적용) */
 .tx-schedule-cell.tx-sunday:not(.tx-schedule-bar) {
   background-color: #ffe6e6;

@@ -658,6 +658,34 @@ var TxTimelineGrid = (function() {
     return html;
   }
 
+  function buildEmptyCellsHtml(cellClasses) {
+    var html = '';
+    var index = 0;
+
+    while (index < cellClasses.length) {
+      var cellClass = cellClasses[index];
+      var colspan = 1;
+
+      while (index + colspan < cellClasses.length && cellClasses[index + colspan] === cellClass) {
+        colspan++;
+      }
+
+      if (colspan > 1) {
+        cellClass += ' tx-empty-cell-merged';
+      }
+
+      html += '<td class="' + cellClass + '"';
+      if (colspan > 1) {
+        html += ' colspan="' + colspan + '"';
+      }
+      html += '></td>';
+
+      index += colspan;
+    }
+
+    return html;
+  }
+
   /**
    * 바디 HTML 생성
    */
@@ -684,12 +712,12 @@ var TxTimelineGrid = (function() {
         html += '<tr class="tx-data-row tx-category-start tx-category-end" data-category="' + categoryIndex + '">';
         html += '<td class="' + categoryClass + '" style="' + categoryStyle + '">' + escapeHtml(category.name) + '</td>';
         html += '<td class="tx-event-cell">(이벤트 없음)</td>';
-        
-        days.forEach(function(dayInfo) {
+
+        html += buildEmptyCellsHtml(days.map(function(dayInfo) {
           var cellClass = 'tx-schedule-cell';
           if (dayInfo.day === 1) cellClass += ' tx-month-start';
-          html += '<td class="' + cellClass + '"></td>';
-        });
+          return cellClass;
+        }));
         
         html += '</tr>';
       } else {
@@ -734,33 +762,46 @@ var TxTimelineGrid = (function() {
   /**
    * 스케줄 셀들 HTML 생성 (한 행의 일별 셀)
    */
+  function buildScheduleCellClass(dayInfo) {
+    var cellClass = 'tx-schedule-cell';
+    if (dayInfo.day === 1) cellClass += ' tx-month-start';
+    // 공휴일이 일요일/토요일보다 우선 (공휴일은 빨간색으로 표시)
+    if (dayInfo.isHoliday) {
+      cellClass += ' tx-holiday';
+    } else if (dayInfo.dayOfWeek === 0) {
+      cellClass += ' tx-sunday';
+    } else if (dayInfo.dayOfWeek === 6) {
+      cellClass += ' tx-saturday';
+    }
+    return cellClass;
+  }
+
+  function buildSchedulesByStartIndex(schedules) {
+    var schedulesByStartIndex = {};
+
+    schedules = schedules || [];
+    schedules.forEach(function(schedule) {
+      if (schedulesByStartIndex[schedule.startIndex] === undefined) {
+        schedulesByStartIndex[schedule.startIndex] = schedule;
+      }
+    });
+
+    return schedulesByStartIndex;
+  }
+
   function buildScheduleCellsHtml(days, schedules, showScheduleName) {
     var html = '';
-    var skipUntil = -1;
+    var dayCellClasses = days.map(buildScheduleCellClass);
+    var schedulesByStartIndex = buildSchedulesByStartIndex(schedules);
+    var index = 0;
     
-    days.forEach(function(dayInfo, index) {
-      // 이전 스케줄의 colspan으로 인해 스킵해야 하는 경우
-      if (index <= skipUntil) {
-        return;
-      }
-      
-      var cellClass = 'tx-schedule-cell';
-      if (dayInfo.day === 1) cellClass += ' tx-month-start';
-      // 공휴일이 일요일/토요일보다 우선 (공휴일은 빨간색으로 표시)
-      if (dayInfo.isHoliday) {
-        cellClass += ' tx-holiday';
-      } else if (dayInfo.dayOfWeek === 0) {
-        cellClass += ' tx-sunday';
-      } else if (dayInfo.dayOfWeek === 6) {
-        cellClass += ' tx-saturday';
-      }
-      
-      // 이 인덱스에서 시작하는 스케줄 찾기
-      var schedule = schedules.find(function(s) {
-        return s.startIndex === index;
-      });
+    while (index < days.length) {
+      var cellClass = dayCellClasses[index];
+      var schedule = schedulesByStartIndex[index];
       
       if (schedule) {
+        var scheduleColspan = Math.max(1, Math.min(schedule.colspan || 1, days.length - index));
+
         // 스케줄 바 셀
         var barClass = 'tx-schedule-bar';
         var barStyle = '';
@@ -815,16 +856,36 @@ var TxTimelineGrid = (function() {
           barClass += ' tx-schedule-bar-clickable';
         }
         
-        html += '<td class="' + cellClass + ' ' + barClass + '" colspan="' + schedule.colspan + '" style="' + barStyle + '" title="' + escapeHtml(tooltip) + '" data-schedule="' + escapeHtml(schedule.name) + '">';
+        html += '<td class="' + cellClass + ' ' + barClass + '" colspan="' + scheduleColspan + '" style="' + barStyle + '" title="' + escapeHtml(tooltip) + '" data-schedule="' + escapeHtml(schedule.name) + '">';
         html += '<div class="tx-schedule-bar-content">' + content + '</div>';
         html += '</td>';
-        
-        skipUntil = index + schedule.colspan - 1;
+
+        index += scheduleColspan;
       } else {
-        // 빈 셀
-        html += '<td class="' + cellClass + '"></td>';
+        // 빈 셀은 같은 표시 클래스끼리만 병합해 월초/휴일/주말 경계를 유지한다.
+        var colspan = 1;
+        while (
+          index + colspan < days.length &&
+          schedulesByStartIndex[index + colspan] === undefined &&
+          dayCellClasses[index + colspan] === cellClass
+        ) {
+          colspan++;
+        }
+
+        var emptyCellClass = cellClass;
+        if (colspan > 1) {
+          emptyCellClass += ' tx-empty-cell-merged';
+        }
+
+        html += '<td class="' + emptyCellClass + '"';
+        if (colspan > 1) {
+          html += ' colspan="' + colspan + '"';
+        }
+        html += '></td>';
+
+        index += colspan;
       }
-    });
+    }
     
     return html;
   }
@@ -928,4 +989,3 @@ var TxTimelineGrid = (function() {
   };
 
 })();
-
